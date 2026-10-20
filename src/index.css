@@ -1,0 +1,197 @@
+@import "tailwindcss";
+
+/* ============================================================
+   FEYAMET AUTO GARAGE — DESIGN TOKENS (Color Hunt 800020)
+   Warm, human, professional palette (non-AI aesthetic)
+   ============================================================ */
+:root {
+  /* Brand Colors */
+  --bg-main: #FFF9F2;             /* Light Warm Cream Background */
+  --bg-card: #FFFFFF;            /* Surface Cards */
+  --bg-secondary: #F3E6D5;       /* Warm Sand Accent */
+
+  --primary-burgundy: #800020;   /* Deep Burgundy Header & Primary Buttons */
+  --primary-burgundy-hover: #600018;
+
+  --accent-coral: #D45060;       /* Alert & Active Badges */
+  --accent-coral-hover: #b83c4b;
+
+  /* Typography & Dividers */
+  --text-dark: #1C1917;          /* High contrast text */
+  --text-muted: #57534E;         /* Secondary text */
+  --border-light: #E7E5E4;       /* Table & Card Borders */
+
+  /* Touch UI Standards */
+  --touch-target-size: 48px;
+  --radius-card: 12px;
+  --shadow-soft: 0 4px 12px rgba(128, 0, 32, 0.06);
+
+  font-family: 'Plus Jakarta Sans', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+  color: var(--text-dark);
+  background-color: var(--bg-main);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Expose the palette to Tailwind v4 utilities:
+   bg-brand, text-brand, bg-cream, bg-sand, text-ink, border-line, rounded-card ... */
+@theme {
+  --color-brand: #800020;
+  --color-brand-hover: #600018;
+  --color-coral: #D45060;
+  --color-coral-hover: #b83c4b;
+  --color-cream: #FFF9F2;
+  --color-sand: #F3E6D5;
+  --color-ink: #1C1917;
+  --color-ink-muted: #57534E;
+  --color-line: #E7E5E4;
+
+  --radius-card: 12px;
+  --shadow-soft: 0 4px 12px rgba(128, 0, 32, 0.06);
+}
+
+html,
+body,
+#root {
+  min-height: 100%;
+  background-color: var(--bg-main);
+  color: var(--text-dark);
+}
+
+body {
+  margin: 0;
+}
+
+/* Tabular figures for data tables, currencies, timestamps */
+.tabular-nums {
+  font-variant-numeric: tabular-nums;
+}
+
+.font-mono {
+  font-family: 'JetBrains Mono', monospace;
+}
+
+/* Touch friendly minimum tap targets for tablets / touch devices */
+.touch-target {
+  min-width: var(--touch-target-size);
+  min-height: var(--touch-target-size);
+}
+
+@media (pointer: coarse) {
+  button,
+  select {
+    min-height: 44px;
+  }
+  input,
+  textarea {
+    min-height: 44px;
+  }
+  .touch-target {
+    min-height: var(--touch-target-size);
+    min-width: var(--touch-target-size);
+  }
+}
+
+/* Warm, subtle scrollbars that suit the app shell */
+.smooth-scroll {
+  -webkit-overflow-scrolling: touch;
+  scroll-behavior: smooth;
+}
+
+.smooth-scroll::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+.smooth-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.smooth-scroll::-webkit-scrollbar-thumb {
+  background: #E7D8C6;
+  border-radius: 999px;
+  border: 2px solid var(--bg-main);
+}
+
+.smooth-scroll::-webkit-scrollbar-thumb:hover {
+  background: #D9C6B0;
+}
+
+/* ============================================================
+   Splash / launch sequence (lightweight, ~1.5s)
+   ============================================================ */
+@keyframes splashIn {
+  from { opacity: 0; transform: scale(0.92); }
+  to   { opacity: 1; transform: scale(1); }
+}
+
+@keyframes splashRise {
+  from { opacity: 0; transform: translateY(12px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes splashRule {
+  from { opacity: 0; transform: scaleX(0); }
+  to   { opacity: 1; transform: scaleX(1); }
+}
+
+.animate-splash-in {
+  animation: splashIn 0.6s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.animate-splash-rise {
+  animation: splashRise 0.5s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.animate-splash-rule {
+  animation: splashRule 0.5s cubic-bezier(0.16, 1, 0.3, 1) both;
+  transform-origin: center;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* Dedicated clean Print Styles for PDF & Hardcopy exports */
+@media print {
+  body {
+    background-color: #ffffff !important;
+    color: #000000 !important;
+    font-size: 11pt !important;
+  }
+
+  .no-print, nav, aside, header, .print-hidden {
+    display: none !important;
+  }
+
+  .print-only {
+    display: block !important;
+  }
+
+  .print-card {
+    border: 1px solid #d1d5db !important;
+    box-shadow: none !important;
+    break-inside: avoid;
+    margin: 0 !important;
+    padding: 1.5rem !important;
+    width: 100% !important;
+  }
+
+  @page {
+    margin: 1.2cm;
+    size: A4 portrait;
+  }
+}
+
+@media screen {
+  .print-only {
+    display: none !important;
+  }
+}

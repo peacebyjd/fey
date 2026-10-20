@@ -1,0 +1,6 @@
+{
+  "name": "Feyamet Auto Garage Management System",
+  "description": "Internal tablet-friendly workshop management system for vehicle intake, cost control & quotations, mechanic task assignment, and repair tracking.",
+  "requestFramePermissions": ["camera"],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

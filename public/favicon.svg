@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Feyamet Auto Garage">
+  <title>Feyamet Auto Garage</title>
+  <rect width="64" height="64" rx="14" fill="#800020" />
+  <g fill="none" stroke-width="7" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M14 46V18" stroke="#FFFFFF" />
+    <path d="M14 18L32 36" stroke="#2F80ED" />
+    <path d="M32 36L50 18" stroke="#F2C94C" />
+    <path d="M50 18V46" stroke="#FFFFFF" />
+  </g>
+</svg>
