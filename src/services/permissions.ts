@@ -6,6 +6,7 @@ export type AppTab =
   | 'manager'
   | 'store'
   | 'datas_history'
+  | 'estimate'
   | 'admin';
 
 export const canManagePricing = (role?: UserRole | null): boolean =>
@@ -34,6 +35,7 @@ const TAB_ACCESS: Record<AppTab, UserRole[]> = {
   manager: ['manager', 'admin'],
   store: ['storekeeper', 'admin'],
   datas_history: ['manager', 'finance', 'admin'],
+  estimate: ['reception', 'finance', 'manager', 'admin'],
   admin: ['admin'],
 };
 

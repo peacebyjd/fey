@@ -22,6 +22,7 @@ import {
   CheckCircle2,
 } from 'lucide-react';
 import { StorageService } from '../../services/storage';
+import { useLanguage } from '../../i18n/LanguageContext';
 import {
   MaterialIssueRecord,
   MaterialItem,
@@ -65,6 +66,7 @@ const emptyMaterialDraft = {
 };
 
 export const StoreDashboard: React.FC<StoreDashboardProps> = ({ currentUser }) => {
+  const { t } = useLanguage();
   const [view, setView] = useState<'tools' | 'materials' | 'requests'>('tools');
   const [tools, setTools] = useState<WorkshopTool[]>(() => StorageService.getWorkshopTools());
   const [checkouts, setCheckouts] = useState<ToolCheckoutRecord[]>(() => StorageService.getToolCheckouts());
@@ -437,15 +439,18 @@ export const StoreDashboard: React.FC<StoreDashboardProps> = ({ currentUser }) =
           </div>
           <div>
             <h2 className="text-lg font-extrabold text-ink">
-              Store -{' '}
-              {view === 'tools' ? 'Tools' : view === 'materials' ? 'Materials' : 'Parts Requests'}
+              {view === 'tools'
+                ? t('store.titleTools')
+                : view === 'materials'
+                ? t('store.titleMaterials')
+                : t('store.titleRequests')}
             </h2>
             <p className="text-xs text-ink-muted">
               {view === 'tools'
-                ? 'Drag a tool onto a mechanic to give it out. Tap a tool first if you are on a tablet.'
+                ? t('store.descTools')
                 : view === 'materials'
-                ? 'Drag a material onto a mechanic to issue 1. Tap a material first to choose a larger quantity.'
-                : 'Requests from the Recorder. Issue from stock or order outside when it is not available.'}
+                ? t('store.descMaterials')
+                : t('store.descRequests')}
             </p>
           </div>
         </div>
@@ -457,7 +462,7 @@ export const StoreDashboard: React.FC<StoreDashboardProps> = ({ currentUser }) =
                 view === 'tools' ? 'bg-brand text-white' : 'text-ink-muted hover:text-ink'
               }`}
             >
-              Tools
+              {t('store.tools')}
             </button>
             <button
               onClick={() => setView('materials')}
@@ -465,7 +470,7 @@ export const StoreDashboard: React.FC<StoreDashboardProps> = ({ currentUser }) =
                 view === 'materials' ? 'bg-brand text-white' : 'text-ink-muted hover:text-ink'
               }`}
             >
-              Materials
+              {t('store.materials')}
             </button>
             <button
               onClick={() => setView('requests')}
@@ -473,7 +478,7 @@ export const StoreDashboard: React.FC<StoreDashboardProps> = ({ currentUser }) =
                 view === 'requests' ? 'bg-brand text-white' : 'text-ink-muted hover:text-ink'
               }`}
             >
-              Requests
+              {t('store.requests')}
               {pendingPartsCount > 0 && (
                 <span
                   className={`min-w-[18px] px-1 py-0.5 rounded-full font-mono text-[10px] ${
@@ -487,12 +492,12 @@ export const StoreDashboard: React.FC<StoreDashboardProps> = ({ currentUser }) =
           </div>
           {view === 'tools' && (
             <span className="text-[11px] font-semibold text-ink-muted bg-sand/60 border border-line rounded-card px-3 py-2">
-              Out now: <span className="text-brand font-bold">{issuedCount}</span>
+              {t('store.outNow', { count: issuedCount })}
             </span>
           )}
           {view === 'materials' && (
             <span className="text-[11px] font-semibold text-ink-muted bg-sand/60 border border-line rounded-card px-3 py-2">
-              Given out: <span className="text-brand font-bold">{issuedMaterialCount}</span>
+              {t('store.givenOut', { count: issuedMaterialCount })}
             </span>
           )}
           {isAdmin && view === 'tools' && (
@@ -500,7 +505,7 @@ export const StoreDashboard: React.FC<StoreDashboardProps> = ({ currentUser }) =
               onClick={handleOpenAddTool}
               className="px-3.5 py-2.5 bg-brand hover:bg-brand-hover text-white rounded-card text-sm font-semibold flex items-center gap-1.5 cursor-pointer shadow-soft"
             >
-              <Plus className="w-4 h-4" /> Add Tool
+              <Plus className="w-4 h-4" /> {t('store.addTool')}
             </button>
           )}
           {isAdmin && view === 'materials' && (
@@ -508,7 +513,7 @@ export const StoreDashboard: React.FC<StoreDashboardProps> = ({ currentUser }) =
               onClick={handleOpenAddMaterial}
               className="px-3.5 py-2.5 bg-brand hover:bg-brand-hover text-white rounded-card text-sm font-semibold flex items-center gap-1.5 cursor-pointer shadow-soft"
             >
-              <Plus className="w-4 h-4" /> Add Material
+              <Plus className="w-4 h-4" /> {t('store.addMaterial')}
             </button>
           )}
         </div>
@@ -529,13 +534,13 @@ export const StoreDashboard: React.FC<StoreDashboardProps> = ({ currentUser }) =
       {view === 'tools' && selectedTool && (
         <div className="text-xs text-brand bg-coral/10 border border-coral/30 px-3 py-2 rounded-card flex items-center justify-between font-semibold">
           <span>
-            Now tap a mechanic below to give {selectedTool.code} - {selectedTool.name}.
+            {t('store.tapMechanic', { code: selectedTool.code, name: selectedTool.name })}
           </span>
           <button
             onClick={() => setSelectedToolId(null)}
             className="text-[11px] font-bold underline cursor-pointer"
           >
-            Cancel
+            {t('store.cancel')}
           </button>
         </div>
       )}
@@ -543,7 +548,7 @@ export const StoreDashboard: React.FC<StoreDashboardProps> = ({ currentUser }) =
       {view === 'materials' && selectedMaterial && (
         <div className="text-xs text-brand bg-coral/10 border border-coral/30 px-3 py-2 rounded-card flex flex-col sm:flex-row sm:items-center justify-between gap-2 font-semibold">
           <span>
-            Choose how much {selectedMaterial.name} to give, then tap a mechanic. Dragging gives 1.
+            {t('store.tapMaterial', { name: selectedMaterial.name })}
           </span>
           <div className="flex items-center gap-2">
             <div className="flex items-center gap-1 bg-white border border-line rounded-lg p-0.5">
@@ -551,7 +556,7 @@ export const StoreDashboard: React.FC<StoreDashboardProps> = ({ currentUser }) =
                 onClick={() => setMaterialIssueQty((q) => Math.max(1, q - 1))}
                 disabled={materialIssueQty <= 1}
                 className="h-6 w-6 flex items-center justify-center rounded-md hover:bg-sand/60 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
-                title="Less"
+                title={t('store.less')}
               >
                 <Minus className="w-3 h-3" />
               </button>
@@ -564,7 +569,7 @@ export const StoreDashboard: React.FC<StoreDashboardProps> = ({ currentUser }) =
                 }
                 disabled={materialIssueQty >= selectedMaterial.quantity}
                 className="h-6 w-6 flex items-center justify-center rounded-md hover:bg-sand/60 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
-                title="More"
+                title={t('store.more')}
               >
                 <Plus className="w-3 h-3" />
               </button>
@@ -576,7 +581,7 @@ export const StoreDashboard: React.FC<StoreDashboardProps> = ({ currentUser }) =
               }}
               className="text-[11px] font-bold underline cursor-pointer"
             >
-              Cancel
+              {t('store.cancel')}
             </button>
           </div>
         </div>
@@ -590,16 +595,16 @@ export const StoreDashboard: React.FC<StoreDashboardProps> = ({ currentUser }) =
             <div className="flex items-center justify-between mb-2">
               <div className="flex items-center gap-1.5">
                 <Wrench className="w-4 h-4 text-brand" />
-                <h3 className="text-sm font-bold text-ink">Tools</h3>
+                <h3 className="text-sm font-bold text-ink">{t('store.tools')}</h3>
               </div>
-              <span className="text-[10px] text-ink-muted">{filteredTools.length} tools</span>
+              <span className="text-[10px] text-ink-muted">{t('store.toolsCount', { count: filteredTools.length })}</span>
             </div>
             <div className="relative">
               <Search className="w-3.5 h-3.5 text-ink-muted/70 absolute left-2.5 top-1/2 -translate-y-1/2" />
               <input
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                placeholder="Search a tool"
+                placeholder={t('store.searchTool')}
                 className="w-full pl-8 pr-2 py-2 text-xs bg-cream border border-line rounded-card focus:outline-none focus:ring-2 focus:ring-brand/25 focus:border-brand"
               />
             </div>
@@ -666,7 +671,7 @@ export const StoreDashboard: React.FC<StoreDashboardProps> = ({ currentUser }) =
                             : 'text-emerald-800 bg-emerald-50 border-emerald-200'
                         }`}
                       >
-                        Available: {tool.availableQuantity} of {tool.totalQuantity}
+                        {t('store.available', { available: tool.availableQuantity, total: tool.totalQuantity })}
                       </span>
                       {isAdmin && (
                         <div className="flex items-center gap-1">
@@ -676,7 +681,7 @@ export const StoreDashboard: React.FC<StoreDashboardProps> = ({ currentUser }) =
                               handleOpenEditTool(tool);
                             }}
                             className="h-7 w-7 flex items-center justify-center bg-white border border-line hover:bg-sand/50 rounded-lg cursor-pointer"
-                            title="Edit"
+                            title={t('common.edit')}
                           >
                             <Edit3 className="w-3.5 h-3.5 text-ink-muted" />
                           </button>
@@ -686,7 +691,7 @@ export const StoreDashboard: React.FC<StoreDashboardProps> = ({ currentUser }) =
                               handleDeleteTool(tool);
                             }}
                             className="h-7 w-7 flex items-center justify-center bg-white border border-line hover:bg-coral/10 rounded-lg cursor-pointer"
-                            title="Remove"
+                            title={t('common.remove')}
                           >
                             <Trash2 className="w-3.5 h-3.5 text-coral" />
                           </button>
@@ -698,7 +703,7 @@ export const StoreDashboard: React.FC<StoreDashboardProps> = ({ currentUser }) =
               })}
               {filteredTools.length === 0 && (
                 <div className="sm:col-span-2 text-[11px] text-ink-muted text-center py-6 border border-dashed border-line rounded-card">
-                  No tools found.
+                  {t('store.noTools')}
                 </div>
               )}
             </div>
@@ -709,8 +714,8 @@ export const StoreDashboard: React.FC<StoreDashboardProps> = ({ currentUser }) =
         <div className="lg:col-span-5 bg-white rounded-card border border-line shadow-soft flex flex-col lg:max-h-[70vh]">
           <div className="p-3 border-b border-line flex items-center gap-1.5">
             <UserCheck className="w-4 h-4 text-brand" />
-            <h3 className="text-sm font-bold text-ink">Mechanics</h3>
-            <span className="text-[10px] text-ink-muted">(drop a tool here)</span>
+            <h3 className="text-sm font-bold text-ink">{t('store.mechanics')}</h3>
+            <span className="text-[10px] text-ink-muted">({t('store.dropHere')})</span>
           </div>
           <div className="p-3 overflow-y-auto smooth-scroll">
             <div className="grid grid-cols-1 gap-2.5">
@@ -759,7 +764,7 @@ export const StoreDashboard: React.FC<StoreDashboardProps> = ({ currentUser }) =
                                 handleReturn(c, 'Returned');
                               }}
                               className="px-2 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded-md text-[10px] font-semibold flex items-center gap-1 cursor-pointer"
-                              title="Back to store"
+                              title={t('store.backToStore')}
                             >
                               <RotateCcw className="w-3 h-3" /> Return
                             </button>
@@ -769,7 +774,7 @@ export const StoreDashboard: React.FC<StoreDashboardProps> = ({ currentUser }) =
                                 handleReturn(c, 'Damaged');
                               }}
                               className="h-7 w-7 flex items-center justify-center bg-white border border-coral/40 rounded-md cursor-pointer"
-                              title="Damaged"
+                              title={t('store.damaged')}
                             >
                               <AlertTriangle className="w-3.5 h-3.5 text-coral" />
                             </button>
@@ -779,7 +784,7 @@ export const StoreDashboard: React.FC<StoreDashboardProps> = ({ currentUser }) =
                                 handleReturn(c, 'Lost');
                               }}
                               className="h-7 w-7 flex items-center justify-center bg-white border border-line rounded-md cursor-pointer"
-                              title="Lost"
+                              title={t('store.lost')}
                             >
                               <XCircle className="w-3.5 h-3.5 text-ink-muted" />
                             </button>
@@ -792,7 +797,7 @@ export const StoreDashboard: React.FC<StoreDashboardProps> = ({ currentUser }) =
                             canDrop ? 'border-brand text-brand' : 'border-line text-ink-muted/70'
                           }`}
                         >
-                          {canIssue ? 'Drop a tool here' : 'No tools out'}
+                          {canIssue ? t('store.dropHere') : t('store.noToolsOut')}
                         </div>
                       )}
                     </div>
@@ -800,7 +805,7 @@ export const StoreDashboard: React.FC<StoreDashboardProps> = ({ currentUser }) =
                 );
               })}
               {activeMechanics.length === 0 && (
-                <div className="text-[11px] text-ink-muted">No mechanics yet.</div>
+                <div className="text-[11px] text-ink-muted">{t('store.noMechanics')}</div>
               )}
             </div>
           </div>
@@ -816,10 +821,10 @@ export const StoreDashboard: React.FC<StoreDashboardProps> = ({ currentUser }) =
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-1.5">
                   <Boxes className="w-4 h-4 text-brand" />
-                  <h3 className="text-sm font-bold text-ink">Materials</h3>
+                  <h3 className="text-sm font-bold text-ink">{t('store.materials')}</h3>
                 </div>
                 <span className="text-[10px] text-ink-muted">
-                  {filteredMaterials.length} item{filteredMaterials.length === 1 ? '' : 's'}
+                  {t('store.itemsCount', { count: filteredMaterials.length })}
                 </span>
               </div>
               <div className="relative">
@@ -827,7 +832,7 @@ export const StoreDashboard: React.FC<StoreDashboardProps> = ({ currentUser }) =
                 <input
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
-                  placeholder="Search a material"
+                  placeholder={t('store.searchMaterial')}
                   className="w-full pl-8 pr-2 py-2 text-xs bg-cream border border-line rounded-card focus:outline-none focus:ring-2 focus:ring-brand/25 focus:border-brand"
                 />
               </div>
@@ -866,7 +871,7 @@ export const StoreDashboard: React.FC<StoreDashboardProps> = ({ currentUser }) =
                       }`}
                       title={
                         noneLeft
-                          ? 'Out of stock'
+                          ? t('store.outOfStock')
                           : 'Drag onto a mechanic, or tap then choose a quantity'
                       }
                     >
@@ -876,7 +881,7 @@ export const StoreDashboard: React.FC<StoreDashboardProps> = ({ currentUser }) =
                             {material.name}
                           </p>
                           <p className="text-[10px] text-ink-muted mt-0.5">
-                            Kept in {material.location}
+                            {t('store.keptIn', { location: material.location })}
                           </p>
                         </div>
                         <div className="flex items-center gap-1 shrink-0">
@@ -891,7 +896,7 @@ export const StoreDashboard: React.FC<StoreDashboardProps> = ({ currentUser }) =
                                   handleOpenEditMaterial(material);
                                 }}
                                 className="h-7 w-7 flex items-center justify-center bg-white border border-line hover:bg-sand/50 rounded-lg cursor-pointer"
-                                title="Edit"
+                            title={t('common.edit')}
                               >
                                 <Edit3 className="w-3.5 h-3.5 text-ink-muted" />
                               </button>
@@ -901,7 +906,7 @@ export const StoreDashboard: React.FC<StoreDashboardProps> = ({ currentUser }) =
                                   handleDeleteMaterial(material);
                                 }}
                                 className="h-7 w-7 flex items-center justify-center bg-white border border-line hover:bg-coral/10 rounded-lg cursor-pointer"
-                                title="Remove"
+                            title={t('common.remove')}
                               >
                                 <Trash2 className="w-3.5 h-3.5 text-coral" />
                               </button>
@@ -932,7 +937,7 @@ export const StoreDashboard: React.FC<StoreDashboardProps> = ({ currentUser }) =
                               }}
                               disabled={material.quantity <= 0}
                               className="h-8 w-8 flex items-center justify-center bg-white border border-line hover:bg-sand/50 disabled:opacity-40 disabled:cursor-not-allowed rounded-lg cursor-pointer"
-                              title="Remove one"
+                              title={t('store.removeOne')}
                             >
                               <Minus className="w-3.5 h-3.5" />
                             </button>
@@ -942,7 +947,7 @@ export const StoreDashboard: React.FC<StoreDashboardProps> = ({ currentUser }) =
                                 handleAdjustMaterial(material, 1);
                               }}
                               className="h-8 w-8 flex items-center justify-center bg-brand text-white hover:bg-brand-hover rounded-lg cursor-pointer"
-                              title="Add one"
+                              title={t('store.addOne')}
                             >
                               <Plus className="w-3.5 h-3.5" />
                             </button>
@@ -954,7 +959,7 @@ export const StoreDashboard: React.FC<StoreDashboardProps> = ({ currentUser }) =
                 })}
                 {filteredMaterials.length === 0 && (
                   <div className="sm:col-span-2 text-[11px] text-ink-muted text-center py-6 border border-dashed border-line rounded-card">
-                    No materials found.
+                    {t('store.noMaterials')}
                   </div>
                 )}
               </div>
@@ -965,8 +970,8 @@ export const StoreDashboard: React.FC<StoreDashboardProps> = ({ currentUser }) =
           <div className="lg:col-span-5 bg-white rounded-card border border-line shadow-soft flex flex-col lg:max-h-[70vh]">
             <div className="p-3 border-b border-line flex items-center gap-1.5">
               <UserCheck className="w-4 h-4 text-brand" />
-              <h3 className="text-sm font-bold text-ink">Mechanics</h3>
-              <span className="text-[10px] text-ink-muted">(drop a material here)</span>
+              <h3 className="text-sm font-bold text-ink">{t('store.mechanicsTitle')}</h3>
+              <span className="text-[10px] text-ink-muted">({t('store.dropMaterialHere')})</span>
             </div>
             <div className="p-3 overflow-y-auto smooth-scroll">
               <div className="grid grid-cols-1 gap-2.5">
@@ -1018,9 +1023,9 @@ export const StoreDashboard: React.FC<StoreDashboardProps> = ({ currentUser }) =
                                 handleReturnMaterialIssue(issue);
                               }}
                               className="px-2 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded-md text-[10px] font-semibold flex items-center gap-1 shrink-0 cursor-pointer"
-                              title="Return unused material to stock"
+                              title={t('store.returnUnused')}
                             >
-                              <RotateCcw className="w-3 h-3" /> Return
+                              <RotateCcw className="w-3 h-3" /> {t('store.return')}
                             </button>
                           </div>
                         ))}
@@ -1030,7 +1035,7 @@ export const StoreDashboard: React.FC<StoreDashboardProps> = ({ currentUser }) =
                               canDrop ? 'border-brand text-brand' : 'border-line text-ink-muted/70'
                             }`}
                           >
-                            {canIssue ? 'Drop a material here' : 'No materials out'}
+                            {canIssue ? t('store.dropMaterialHere') : t('store.noMaterialsOut')}
                           </div>
                         )}
                       </div>
@@ -1038,7 +1043,7 @@ export const StoreDashboard: React.FC<StoreDashboardProps> = ({ currentUser }) =
                   );
                 })}
                 {activeMechanics.length === 0 && (
-                  <div className="text-[11px] text-ink-muted">No mechanics yet.</div>
+                  <div className="text-[11px] text-ink-muted">{t('store.noMechanics')}</div>
                 )}
               </div>
             </div>
@@ -1052,21 +1057,21 @@ export const StoreDashboard: React.FC<StoreDashboardProps> = ({ currentUser }) =
             <div className="flex items-center justify-between gap-2">
               <div className="flex items-center gap-1.5">
                 <ClipboardList className="w-4 h-4 text-brand" />
-                <h3 className="text-sm font-bold text-ink">Parts Requests</h3>
+                <h3 className="text-sm font-bold text-ink">{t('store.partsRequests')}</h3>
               </div>
               <span className="text-[10px] text-ink-muted">
-                {partsRequests.length} request{partsRequests.length === 1 ? '' : 's'}
+                {t('store.requestsCount', { count: partsRequests.length })}
               </span>
             </div>
             <p className="text-[11px] text-ink-muted mt-1">
-              From the Recorder. If the part is not in Materials, order it outside.
+              {t('store.requestsHint')}
             </p>
           </div>
 
           <div className="p-3">
             {sortedPartsRequests.length === 0 ? (
               <div className="text-[11px] text-ink-muted text-center py-8 border border-dashed border-line rounded-card">
-                No parts requests yet. The Recorder sends them from the vehicle card.
+                {t('store.noRequests')}
               </div>
             ) : (
               <div className="grid gap-2.5">
@@ -1112,12 +1117,12 @@ export const StoreDashboard: React.FC<StoreDashboardProps> = ({ currentUser }) =
                       </div>
 
                       {request.note && (
-                        <p className="text-[11px] text-ink-muted">Note: {request.note}</p>
+                        <p className="text-[11px] text-ink-muted">{t('store.note')} {request.note}</p>
                       )}
 
                       <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[10px] text-ink-muted">
                         <span>
-                          By {request.requestedBy} / {request.requestedAt}
+                          {t('store.by')} {request.requestedBy} / {request.requestedAt}
                         </span>
                         <span
                           className={
@@ -1125,8 +1130,8 @@ export const StoreDashboard: React.FC<StoreDashboardProps> = ({ currentUser }) =
                           }
                         >
                           {stock
-                            ? `In store: ${stock.quantity} ${stock.unit}`
-                            : 'Not in Materials'}
+                            ? t('store.inStore', { qty: stock.quantity, unit: stock.unit })
+                            : t('store.notInMaterials')}
                         </span>
                       </div>
 
@@ -1146,7 +1151,7 @@ export const StoreDashboard: React.FC<StoreDashboardProps> = ({ currentUser }) =
                                 }
                               >
                                 <Package className="w-3.5 h-3.5" />
-                                Issue from Store
+                                {t('store.issueFromStore')}
                               </button>
                               <button
                                 type="button"
@@ -1154,7 +1159,7 @@ export const StoreDashboard: React.FC<StoreDashboardProps> = ({ currentUser }) =
                                 className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-[11px] font-bold cursor-pointer"
                               >
                                 <Truck className="w-3.5 h-3.5" />
-                                Order Outside
+                                {t('store.orderOutside')}
                               </button>
                             </>
                           )}
@@ -1165,7 +1170,7 @@ export const StoreDashboard: React.FC<StoreDashboardProps> = ({ currentUser }) =
                               className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-[11px] font-bold cursor-pointer"
                             >
                               <CheckCircle2 className="w-3.5 h-3.5" />
-                              Mark Received
+                              {t('store.markReceived')}
                             </button>
                           )}
                         </div>
@@ -1173,7 +1178,7 @@ export const StoreDashboard: React.FC<StoreDashboardProps> = ({ currentUser }) =
 
                       {request.handledBy && (
                         <p className="text-[10px] text-ink-muted">
-                          Handled by {request.handledBy} / {request.handledAt}
+                          {t('store.handledBy')} {request.handledBy} / {request.handledAt}
                         </p>
                       )}
                     </div>
@@ -1219,11 +1224,13 @@ const ToolEditorModal: React.FC<{
   onChange: (patch: Partial<typeof emptyDraft>) => void;
   onCancel: () => void;
   onSave: () => void;
-}> = ({ isEdit, draft, error, onChange, onCancel, onSave }) => (
+}> = ({ isEdit, draft, error, onChange, onCancel, onSave }) => {
+  const { t } = useLanguage();
+  return (
   <div className="fixed inset-0 bg-ink/50 z-50 flex items-center justify-center p-4">
     <div className="bg-white rounded-card shadow-xl w-full max-w-lg border border-line">
       <div className="px-4 py-3 border-b border-line flex items-center justify-between">
-        <h3 className="text-sm font-bold text-ink">{isEdit ? 'Edit Tool' : 'Add Tool'}</h3>
+        <h3 className="text-sm font-bold text-ink">{isEdit ? t('store.editTool') : t('store.addTool')}</h3>
         <button onClick={onCancel} className="text-ink-muted hover:text-ink text-sm cursor-pointer">
           ✕
         </button>
@@ -1234,7 +1241,7 @@ const ToolEditorModal: React.FC<{
         )}
         <div className="grid grid-cols-2 gap-3">
           <div>
-            <label className="block text-[10px] font-semibold text-ink mb-0.5">Code</label>
+            <label className="block text-[10px] font-semibold text-ink mb-0.5">{t('store.code')}</label>
             <input
               value={draft.code}
               onChange={(e) => onChange({ code: e.target.value })}
@@ -1243,7 +1250,7 @@ const ToolEditorModal: React.FC<{
             />
           </div>
           <div>
-            <label className="block text-[10px] font-semibold text-ink mb-0.5">Where it is kept</label>
+            <label className="block text-[10px] font-semibold text-ink mb-0.5">{t('store.whereKept')}</label>
             <input
               value={draft.locationRack}
               onChange={(e) => onChange({ locationRack: e.target.value })}
@@ -1253,7 +1260,7 @@ const ToolEditorModal: React.FC<{
           </div>
         </div>
         <div>
-          <label className="block text-[10px] font-semibold text-ink mb-0.5">Name</label>
+          <label className="block text-[10px] font-semibold text-ink mb-0.5">{t('store.name')}</label>
           <input
             value={draft.name}
             onChange={(e) => onChange({ name: e.target.value })}
@@ -1263,7 +1270,7 @@ const ToolEditorModal: React.FC<{
         </div>
         <div className="grid grid-cols-3 gap-3">
           <div>
-            <label className="block text-[10px] font-semibold text-ink mb-0.5">Group</label>
+            <label className="block text-[10px] font-semibold text-ink mb-0.5">{t('store.group')}</label>
             <select
               value={draft.category}
               onChange={(e) => onChange({ category: e.target.value as ToolCategory })}
@@ -1275,7 +1282,7 @@ const ToolEditorModal: React.FC<{
             </select>
           </div>
           <div>
-            <label className="block text-[10px] font-semibold text-ink mb-0.5">Total</label>
+            <label className="block text-[10px] font-semibold text-ink mb-0.5">{t('store.total')}</label>
             <input
               type="number"
               min={0}
@@ -1285,7 +1292,7 @@ const ToolEditorModal: React.FC<{
             />
           </div>
           <div>
-            <label className="block text-[10px] font-semibold text-ink mb-0.5">Available</label>
+            <label className="block text-[10px] font-semibold text-ink mb-0.5">{t('store.availableLabel')}</label>
             <input
               type="number"
               min={0}
@@ -1296,16 +1303,16 @@ const ToolEditorModal: React.FC<{
           </div>
         </div>
         <div>
-          <label className="block text-[10px] font-semibold text-ink mb-0.5">Condition</label>
+          <label className="block text-[10px] font-semibold text-ink mb-0.5">{t('store.condition')}</label>
           <select
             value={draft.condition}
             onChange={(e) => onChange({ condition: e.target.value as WorkshopTool['condition'] })}
             className="w-full px-2 py-2 bg-cream border border-line rounded-lg focus:outline-none focus:ring-2 focus:ring-brand/25 focus:border-brand"
           >
-            <option>Excellent</option>
-            <option>Good</option>
-            <option>Fair</option>
-            <option>Needs Service</option>
+            <option>{t('store.excellent')}</option>
+            <option>{t('store.good')}</option>
+            <option>{t('store.fair')}</option>
+            <option>{t('store.needsService')}</option>
           </select>
         </div>
       </div>
@@ -1314,18 +1321,19 @@ const ToolEditorModal: React.FC<{
           onClick={onCancel}
           className="px-3 py-2 bg-white border border-line rounded-card text-xs font-semibold cursor-pointer"
         >
-          Cancel
+          {t('common.cancel')}
         </button>
         <button
           onClick={onSave}
           className="px-3.5 py-2 bg-brand hover:bg-brand-hover text-white rounded-card text-xs font-semibold cursor-pointer"
         >
-          Save
+          {t('common.save')}
         </button>
       </div>
     </div>
   </div>
-);
+  );
+};
 
 const MaterialEditorModal: React.FC<{
   isEdit: boolean;
@@ -1334,11 +1342,13 @@ const MaterialEditorModal: React.FC<{
   onChange: (patch: Partial<typeof emptyMaterialDraft>) => void;
   onCancel: () => void;
   onSave: () => void;
-}> = ({ isEdit, draft, error, onChange, onCancel, onSave }) => (
+}> = ({ isEdit, draft, error, onChange, onCancel, onSave }) => {
+  const { t } = useLanguage();
+  return (
   <div className="fixed inset-0 bg-ink/50 z-50 flex items-center justify-center p-4">
     <div className="bg-white rounded-card shadow-xl w-full max-w-lg border border-line">
       <div className="px-4 py-3 border-b border-line flex items-center justify-between">
-        <h3 className="text-sm font-bold text-ink">{isEdit ? 'Edit Material' : 'Add Material'}</h3>
+        <h3 className="text-sm font-bold text-ink">{isEdit ? t('store.editMaterial') : t('store.addMaterial')}</h3>
         <button onClick={onCancel} className="text-ink-muted hover:text-ink text-sm cursor-pointer">
           X
         </button>
@@ -1348,7 +1358,7 @@ const MaterialEditorModal: React.FC<{
           <div className="text-coral bg-coral/10 border border-coral/30 rounded-lg px-2.5 py-1.5">{error}</div>
         )}
         <div>
-          <label className="block text-[10px] font-semibold text-ink mb-0.5">Name</label>
+          <label className="block text-[10px] font-semibold text-ink mb-0.5">{t('store.name')}</label>
           <input
             value={draft.name}
             onChange={(e) => onChange({ name: e.target.value })}
@@ -1358,7 +1368,7 @@ const MaterialEditorModal: React.FC<{
         </div>
         <div className="grid grid-cols-3 gap-3">
           <div>
-            <label className="block text-[10px] font-semibold text-ink mb-0.5">Quantity</label>
+            <label className="block text-[10px] font-semibold text-ink mb-0.5">{t('store.quantity')}</label>
             <input
               type="number"
               min={1}
@@ -1368,7 +1378,7 @@ const MaterialEditorModal: React.FC<{
             />
           </div>
           <div>
-            <label className="block text-[10px] font-semibold text-ink mb-0.5">Unit</label>
+            <label className="block text-[10px] font-semibold text-ink mb-0.5">{t('store.unit')}</label>
             <input
               value={draft.unit}
               onChange={(e) => onChange({ unit: e.target.value })}
@@ -1377,7 +1387,7 @@ const MaterialEditorModal: React.FC<{
             />
           </div>
           <div>
-            <label className="block text-[10px] font-semibold text-ink mb-0.5">Where it is kept</label>
+            <label className="block text-[10px] font-semibold text-ink mb-0.5">{t('store.whereKept')}</label>
             <input
               value={draft.location}
               onChange={(e) => onChange({ location: e.target.value })}
@@ -1392,15 +1402,16 @@ const MaterialEditorModal: React.FC<{
           onClick={onCancel}
           className="px-3 py-2 bg-white border border-line rounded-card text-xs font-semibold cursor-pointer"
         >
-          Cancel
+          {t('common.cancel')}
         </button>
         <button
           onClick={onSave}
           className="px-3.5 py-2 bg-brand hover:bg-brand-hover text-white rounded-card text-xs font-semibold cursor-pointer"
         >
-          Save
+          {t('common.save')}
         </button>
       </div>
     </div>
   </div>
-);
+  );
+};

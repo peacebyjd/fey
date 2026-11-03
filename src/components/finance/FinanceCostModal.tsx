@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { JobRecord, PaymentRecord, PriceItem, User } from '../../types';
 import { StorageService } from '../../services/storage';
 import { PdfService } from '../../services/pdfService';
+import { DocumentShareButton } from '../common/DocumentShareButton';
 import { PriceItemPicker } from './PriceItemPicker';
 import {
   X,
@@ -185,6 +186,11 @@ export const FinanceCostModal: React.FC<FinanceCostModalProps> = ({
               <Download className="w-3.5 h-3.5 text-brand" />
               <span className="hidden sm:inline">Quotation</span>
             </button>
+            <DocumentShareButton
+              title={`Quotation — ${job.jobNumber}`}
+              text={`Quotation · ${job.jobNumber} · ${job.plateNumber} · ${job.vehicleMake} ${job.vehicleModel}\n${settings.garageName} · ${settings.phone}`}
+              getPdf={() => PdfService.generateQuotationPdf(job, settings, { download: false })}
+            />
             <button
               type="button"
               onClick={() => PdfService.generateInvoicePdf(job, settings)}
@@ -193,6 +199,11 @@ export const FinanceCostModal: React.FC<FinanceCostModalProps> = ({
               <Printer className="w-3.5 h-3.5" />
               <span className="hidden sm:inline">Invoice</span>
             </button>
+            <DocumentShareButton
+              title={`Invoice — ${job.jobNumber}`}
+              text={`Invoice · ${job.jobNumber} · ${job.plateNumber} · ${job.vehicleMake} ${job.vehicleModel}\n${settings.garageName} · ${settings.phone}`}
+              getPdf={() => PdfService.generateInvoicePdf(job, settings, { download: false })}
+            />
             <button
               type="button"
               onClick={onClose}

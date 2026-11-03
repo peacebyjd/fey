@@ -2,7 +2,9 @@ import React, { useState } from 'react';
 import { JobRecord, PriceItem, PaymentRecord, User } from '../../types';
 import { StorageService } from '../../services/storage';
 import { PdfService } from '../../services/pdfService';
+import { DocumentShareButton } from '../common/DocumentShareButton';
 import { StatusBadge } from '../common/StatusBadge';
+import { useLanguage } from '../../i18n/LanguageContext';
 import { PriceItemPicker } from './PriceItemPicker';
 import { FinanceOverview } from './FinanceOverview';
 import { SalaryPage } from './SalaryPage';
@@ -70,6 +72,7 @@ export const FinanceDashboard: React.FC<FinanceDashboardProps> = ({
   onOpenJobDetail,
   onRefreshJobs,
 }) => {
+  const { t } = useLanguage();
   const settings = StorageService.getSettings();
   const catalog = StorageService.getPriceItems();
 
@@ -308,28 +311,35 @@ export const FinanceDashboard: React.FC<FinanceDashboardProps> = ({
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
-          <h1 className="text-xl sm:text-2xl font-bold text-ink">Finance</h1>
+          <h1 className="text-xl sm:text-2xl font-bold text-ink">{t('finance.title')}</h1>
           <p className="text-sm text-ink-muted">
-            Pricing, weekly salaries, expenses and profit in {settings.currency}.
+            {t('finance.description', { currency: settings.currency })}
           </p>
         </div>
-        <button
-          type="button"
-          onClick={() => PdfService.generateDailySummaryPdf(jobs, settings)}
-          className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-brand hover:bg-brand-hover text-white font-semibold text-xs shadow-xs transition cursor-pointer shrink-0"
-        >
-          <Download className="w-3.5 h-3.5" />
-          <span>Export Ledger PDF</span>
-        </button>
+        <div className="flex items-center gap-2 shrink-0">
+          <DocumentShareButton
+            title={t('finance.exportLedger')}
+            text={`${t('finance.exportLedger')} · ${jobs.length}\n${settings.garageName} · ${settings.phone}`}
+            getPdf={() => PdfService.generateDailySummaryPdf(jobs, settings, { download: false })}
+          />
+          <button
+            type="button"
+            onClick={() => PdfService.generateDailySummaryPdf(jobs, settings)}
+            className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-brand hover:bg-brand-hover text-white font-semibold text-xs shadow-xs transition cursor-pointer shrink-0"
+          >
+            <Download className="w-3.5 h-3.5" />
+            <span>{t('finance.exportLedger')}</span>
+          </button>
+        </div>
       </div>
 
       {/* Finance sections */}
       <div className="flex items-center gap-1.5 overflow-x-auto text-xs font-semibold bg-white p-2.5 rounded-xl border border-line shadow-2xs">
         {[
-          { id: 'overview', label: 'Overview', icon: LayoutDashboard },
-          { id: 'pricing', label: 'Vehicle Pricing', icon: Tag },
-          { id: 'salary', label: 'Salary', icon: Wallet },
-          { id: 'expenses', label: 'Expenses', icon: ReceiptText },
+          { id: 'overview', label: t('finance.overview'), icon: LayoutDashboard },
+          { id: 'pricing', label: t('finance.vehiclePricing'), icon: Tag },
+          { id: 'salary', label: t('finance.salary'), icon: Wallet },
+          { id: 'expenses', label: t('finance.expenses'), icon: ReceiptText },
         ].map((tab) => {
           const Icon = tab.icon;
           return (
@@ -364,21 +374,21 @@ export const FinanceDashboard: React.FC<FinanceDashboardProps> = ({
       {/* Metric cards */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         <div className="p-3.5 bg-white rounded-xl border border-line shadow-2xs">
-          <span className="text-[11px] font-semibold text-ink-muted uppercase tracking-wide">Needs Price</span>
+          <span className="text-[11px] font-semibold text-ink-muted uppercase tracking-wide">{t('finance.needsPrice')}</span>
           <p className="text-xl font-bold text-amber-700 tabular-nums mt-0.5">{awaitingPriceJobs.length}</p>
         </div>
         <div className="p-3.5 bg-white rounded-xl border border-line shadow-2xs">
-          <span className="text-[11px] font-semibold text-ink-muted uppercase tracking-wide">Priced</span>
+          <span className="text-[11px] font-semibold text-ink-muted uppercase tracking-wide">{t('finance.priced')}</span>
           <p className="text-xl font-bold text-ink tabular-nums mt-0.5">{activePricedJobs.length}</p>
         </div>
         <div className="p-3.5 bg-white rounded-xl border border-line shadow-2xs">
-          <span className="text-[11px] font-semibold text-ink-muted uppercase tracking-wide">Collected</span>
+          <span className="text-[11px] font-semibold text-ink-muted uppercase tracking-wide">{t('finance.collected')}</span>
           <p className="text-xl font-mono font-bold text-emerald-700 tabular-nums mt-0.5">
             {totalCollectedPayments.toLocaleString()}
           </p>
         </div>
         <div className="p-3.5 bg-white rounded-xl border border-line shadow-2xs">
-          <span className="text-[11px] font-semibold text-ink-muted uppercase tracking-wide">Balance Due</span>
+          <span className="text-[11px] font-semibold text-ink-muted uppercase tracking-wide">{t('finance.balanceDue')}</span>
           <p className="text-xl font-mono font-bold text-coral tabular-nums mt-0.5">
             {totalOutstandingBalance.toLocaleString()}
           </p>
@@ -389,10 +399,10 @@ export const FinanceDashboard: React.FC<FinanceDashboardProps> = ({
       <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 bg-white p-2.5 rounded-xl border border-line shadow-2xs">
         <div className="flex items-center gap-1.5 overflow-x-auto text-xs font-semibold">
           {[
-            { id: 'all', label: 'All', count: jobs.length },
-            { id: 'awaiting_price', label: 'Needs Price', count: awaitingPriceJobs.length },
-            { id: 'active_priced', label: 'Priced', count: activePricedJobs.length },
-            { id: 'ready_payment', label: 'Balance Due', count: readyPaymentJobs.length },
+            { id: 'all', label: t('finance.all'), count: jobs.length },
+            { id: 'awaiting_price', label: t('finance.needsPrice'), count: awaitingPriceJobs.length },
+            { id: 'active_priced', label: t('finance.priced'), count: activePricedJobs.length },
+            { id: 'ready_payment', label: t('finance.balanceDue'), count: readyPaymentJobs.length },
           ].map((tab) => (
             <button
               key={tab.id}
@@ -420,7 +430,7 @@ export const FinanceDashboard: React.FC<FinanceDashboardProps> = ({
             type="text"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Search plate or customer"
+            placeholder={t('finance.searchPlaceholder')}
             className="w-full pl-8 pr-3 py-1.5 text-xs border border-line rounded-lg focus:outline-none focus:ring-1 focus:ring-brand"
           />
         </div>
@@ -432,7 +442,7 @@ export const FinanceDashboard: React.FC<FinanceDashboardProps> = ({
         <div className="lg:col-span-4 bg-white rounded-2xl border border-line overflow-hidden shadow-2xs">
           <div className="p-3.5 border-b border-line bg-sand/40">
             <span className="text-xs font-bold text-ink uppercase tracking-wider">
-              Vehicles ({filteredList.length})
+              {t('finance.vehicles', { count: filteredList.length })}
             </span>
           </div>
 
@@ -463,10 +473,10 @@ export const FinanceDashboard: React.FC<FinanceDashboardProps> = ({
                   <div className="mt-2 flex items-center justify-between text-xs border-t border-line pt-1.5">
                     <span className="text-[11px] text-ink-muted/70 flex items-center gap-1">
                       <UserCheck className="w-3 h-3" />
-                      {job.createdBy || 'Recorder'}
+                      {job.createdBy || t('finance.recorder')}
                     </span>
                     <span className={`font-mono font-bold tabular-nums ${hasPrice ? 'text-ink' : 'text-amber-700'}`}>
-                      {hasPrice ? `${effective.toLocaleString()}` : 'No price'}
+                      {hasPrice ? `${effective.toLocaleString()}` : t('finance.notPriced')}
                     </span>
                   </div>
                 </div>
@@ -476,7 +486,7 @@ export const FinanceDashboard: React.FC<FinanceDashboardProps> = ({
             {filteredList.length === 0 && (
               <div className="p-8 text-center text-xs text-ink-muted/70">
                 <Car className="w-8 h-8 mx-auto text-line mb-2" />
-                <p className="font-medium text-ink">No vehicles here</p>
+                <p className="font-medium text-ink">{t('finance.noVehicles')}</p>
               </div>
             )}
           </div>
@@ -508,32 +518,41 @@ export const FinanceDashboard: React.FC<FinanceDashboardProps> = ({
                     className="flex items-center gap-1 px-3 py-1.5 text-xs font-semibold text-ink bg-sand/50 hover:bg-sand rounded-lg cursor-pointer"
                   >
                     <Download className="w-3.5 h-3.5 text-brand" />
-                    <span>Quotation</span>
+                    <span>{t('finance.quotation')}</span>
                   </button>
+                  <DocumentShareButton
+                    title={`${t('finance.quotation')} — ${activeJob.jobNumber}`}
+                    text={`${t('finance.quotation')} · ${activeJob.jobNumber} · ${activeJob.plateNumber}\n${settings.garageName} · ${settings.phone}`}
+                    getPdf={() => PdfService.generateQuotationPdf(activeJob, settings, { download: false })}
+                  />
                   <button
                     type="button"
                     onClick={() => PdfService.generateInvoicePdf(activeJob, settings)}
                     className="flex items-center gap-1 px-3 py-1.5 text-xs font-semibold text-ink bg-sand/50 hover:bg-sand rounded-lg cursor-pointer"
                   >
                     <Printer className="w-3.5 h-3.5" />
-                    <span>Invoice</span>
+                    <span>{t('finance.invoice')}</span>
                   </button>
+                  <DocumentShareButton
+                    title={`${t('finance.invoice')} — ${activeJob.jobNumber}`}
+                    text={`${t('finance.invoice')} · ${activeJob.jobNumber} · ${activeJob.plateNumber}\n${settings.garageName} · ${settings.phone}`}
+                    getPdf={() => PdfService.generateInvoicePdf(activeJob, settings, { download: false })}
+                  />
                 </div>
               </div>
 
               <div className="p-3 bg-coral/10 rounded-xl border border-coral/30 text-xs">
-                <span className="font-bold text-brand">Reported problem: </span>
-                <span className="text-ink">{activeJob.customerProblem || 'No defect described.'}</span>
+                <span className="font-bold text-brand">{t('finance.reportedProblem')} </span>
+                <span className="text-ink">{activeJob.customerProblem || t('finance.noDefect')}</span>
               </div>
             </div>
 
             {/* Price picker */}
             <div className="bg-white rounded-2xl border border-line p-4 sm:p-5 shadow-2xs space-y-4">
               <div className="border-b border-line pb-3">
-                <h3 className="text-sm font-bold text-ink">Set the price</h3>
+                <h3 className="text-sm font-bold text-ink">{t('finance.setPrice')}</h3>
                 <p className="text-xs text-ink-muted">
-                  Registration requirements are listed below. Set a price for each Repair or Replace
-                  item. The total updates automatically.
+                  {t('finance.setPriceDesc')}
                 </p>
               </div>
 
@@ -551,7 +570,7 @@ export const FinanceDashboard: React.FC<FinanceDashboardProps> = ({
                   className="w-full sm:w-auto flex items-center justify-center gap-1.5 px-4 py-2.5 text-xs font-semibold text-ink bg-sand hover:bg-line rounded-xl transition cursor-pointer"
                 >
                   <Check className="w-4 h-4" />
-                  <span>Save Price</span>
+                  <span>{t('finance.savePrice')}</span>
                 </button>
                 <button
                   type="button"
@@ -559,7 +578,7 @@ export const FinanceDashboard: React.FC<FinanceDashboardProps> = ({
                   className="w-full sm:w-auto flex items-center justify-center gap-1.5 px-6 py-2.5 text-xs font-bold text-white bg-brand hover:bg-brand-hover rounded-xl transition shadow-xs cursor-pointer"
                 >
                   <Send className="w-4 h-4" />
-                  <span>Save & Send to Manager</span>
+                  <span>{t('finance.saveSend')}</span>
                 </button>
               </div>
             </div>
@@ -570,10 +589,10 @@ export const FinanceDashboard: React.FC<FinanceDashboardProps> = ({
                 <div>
                   <h3 className="text-sm font-bold text-ink flex items-center gap-1.5">
                     <CreditCard className="w-4 h-4 text-ink-muted" />
-                    <span>Payments</span>
+                    <span>{t('finance.payments')}</span>
                   </h3>
                   <p className="text-xs text-ink-muted">
-                    Paid {totalPaid.toLocaleString()} · Balance{' '}
+                    {t('finance.paid')} {totalPaid.toLocaleString()} · {t('finance.balance')}{' '}
                     <span className={remainingBalance > 0 ? 'text-coral font-semibold' : 'text-emerald-700 font-semibold'}>
                       {remainingBalance.toLocaleString()} {settings.currency}
                     </span>
@@ -585,7 +604,7 @@ export const FinanceDashboard: React.FC<FinanceDashboardProps> = ({
                     onClick={() => setShowAddPayment(true)}
                     className="px-3.5 py-2 bg-brand hover:bg-brand-hover text-white font-semibold text-xs rounded-lg cursor-pointer"
                   >
-                    Add Payment
+                    {t('finance.addPayment')}
                   </button>
                 )}
               </div>
@@ -598,7 +617,7 @@ export const FinanceDashboard: React.FC<FinanceDashboardProps> = ({
                       min="1"
                       value={payAmount || ''}
                       onChange={(e) => setPayAmount(parseFloat(e.target.value) || 0)}
-                      placeholder={`Amount (${settings.currency})`}
+                      placeholder={t('finance.amountPlaceholder', { currency: settings.currency })}
                       className="w-full px-2.5 py-2 bg-white border border-line rounded-lg font-mono text-xs"
                     />
                     <select
@@ -614,7 +633,7 @@ export const FinanceDashboard: React.FC<FinanceDashboardProps> = ({
                     </select>
                     <input
                       type="text"
-                      placeholder="Reference (optional)"
+                      placeholder={t('finance.referenceOptional')}
                       value={payReference}
                       onChange={(e) => setPayReference(e.target.value)}
                       className="w-full px-2.5 py-2 bg-white border border-line rounded-lg text-xs"
@@ -624,7 +643,7 @@ export const FinanceDashboard: React.FC<FinanceDashboardProps> = ({
                       onClick={handleRecordPayment}
                       className="w-full py-2 bg-brand hover:bg-brand-hover text-white font-semibold rounded-lg text-xs cursor-pointer"
                     >
-                      Save Payment
+                      {t('finance.savePayment')}
                     </button>
                   </div>
                 </div>
@@ -652,15 +671,15 @@ export const FinanceDashboard: React.FC<FinanceDashboardProps> = ({
                   ))}
                 </div>
               ) : (
-                <p className="text-xs text-ink-muted/70 italic">No payments yet.</p>
+                <p className="text-xs text-ink-muted/70 italic">{t('finance.noPayments')}</p>
               )}
             </div>
           </div>
         ) : (
           <div className="lg:col-span-8 bg-white rounded-2xl border border-line p-12 text-center text-ink-muted/70">
             <Car className="w-10 h-10 mx-auto text-line mb-2" />
-            <p className="text-sm font-semibold text-ink">Select a vehicle from the list</p>
-            <p className="text-xs mt-1">Pick price items and set the total.</p>
+            <p className="text-sm font-semibold text-ink">{t('finance.selectVehicle')}</p>
+            <p className="text-xs mt-1">{t('finance.selectVehicleDesc')}</p>
           </div>
         )}
       </div>

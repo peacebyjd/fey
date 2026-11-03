@@ -7,25 +7,26 @@ import {
 } from '../../types';
 import { StorageService } from '../../services/storage';
 import { calculateFinanceTotals } from '../../services/financeTotals';
+import { useLanguage } from '../../i18n/LanguageContext';
 import { PriorityBadge } from '../common/StatusBadge';
 import { TeamManagementModal } from './TeamManagementModal';
 import { JobAssignmentModal } from './JobAssignmentModal';
 import {
   Users,
-  Kanban,
   Search,
   CheckCircle2,
   Send,
   Smartphone,
   Phone,
-  Database,
   Check,
   ArrowUpRight,
   ArrowDownRight,
   Wallet,
+  Info,
 } from 'lucide-react';
 
 const RequirementSummary: React.FC<{ job: JobRecord; currency: string }> = ({ job, currency }) => {
+  const { t } = useLanguage();
   const items = (job.priceItems || []).filter((i) => i.name.trim());
   if (items.length === 0) return null;
   return (
@@ -42,7 +43,7 @@ const RequirementSummary: React.FC<{ job: JobRecord; currency: string }> = ({ jo
                   : 'bg-sand text-ink-muted border border-line'
               }`}
             >
-              {item.action || 'Extra'}
+              {item.action || t('manager.extra')}
             </span>
             <span className="truncate text-ink-muted">{item.name}</span>
           </span>
@@ -52,7 +53,7 @@ const RequirementSummary: React.FC<{ job: JobRecord; currency: string }> = ({ jo
         </div>
       ))}
       {items.length > 3 && (
-        <p className="text-[10px] text-ink-muted/70">+{items.length - 3} more</p>
+        <p className="text-[10px] text-ink-muted/70">{t('manager.more', { count: items.length - 3 })}</p>
       )}
     </div>
   );
@@ -75,6 +76,7 @@ export const ManagerDashboard: React.FC<ManagerDashboardProps> = ({
   onRefreshJobs,
   onOpenDatasArchive,
 }) => {
+  const { t } = useLanguage();
   const settings = StorageService.getSettings();
   const [teams, setTeams] = useState<MechanicTeam[]>(StorageService.getTeams());
   const [isTeamModalOpen, setIsTeamModalOpen] = useState(false);
@@ -82,6 +84,8 @@ export const ManagerDashboard: React.FC<ManagerDashboardProps> = ({
   const [initialTeamForModal, setInitialTeamForModal] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [draggedJobId, setDraggedJobId] = useState<string | null>(null);
+  const [pickedJobId, setPickedJobId] = useState<string | null>(null);
+  const [isTouch, setIsTouch] = useState(false);
   const [notificationToast, setNotificationToast] = useState<string | null>(null);
   const [expenses, setExpenses] = useState(() => StorageService.getExpenses());
 
@@ -89,6 +93,15 @@ export const ManagerDashboard: React.FC<ManagerDashboardProps> = ({
     const refresh = () => setExpenses(StorageService.getExpenses());
     refresh();
     return StorageService.subscribe(refresh);
+  }, []);
+
+  // Touch screens do not fire HTML5 drag events, so cards switch to tap-to-pick.
+  useEffect(() => {
+    const query = window.matchMedia('(pointer: coarse)');
+    const update = () => setIsTouch(query.matches);
+    update();
+    query.addEventListener('change', update);
+    return () => query.removeEventListener('change', update);
   }, []);
 
   const finance = calculateFinanceTotals(jobs, expenses);
@@ -145,6 +158,8 @@ export const ManagerDashboard: React.FC<ManagerDashboardProps> = ({
     (j) => j.status === 'Completed' && !isCompletedWithinLast24Hours(j)
   ).length;
 
+  const pickedJob = pickedJobId ? jobs.find((j) => j.id === pickedJobId) || null : null;
+
   const handleTeamsUpdated = () => {
     setTeams(StorageService.getTeams());
     onRefreshJobs();
@@ -167,47 +182,51 @@ export const ManagerDashboard: React.FC<ManagerDashboardProps> = ({
   const hasFinancePrice = (job: JobRecord) =>
     (job.finalApprovedPrice || 0) > 0 || (job.totalEstimatedCost || 0) > 0;
 
-  // Drop onto a team column → open the simple send screen
-  const handleDropOnTeam = (e: React.DragEvent, targetTeamId: string | null) => {
-    e.preventDefault();
-    const jobId = e.dataTransfer.getData('text/plain') || draggedJobId;
-    if (!jobId) return;
+  // Shared by drag-and-drop and by the tablet tap-to-send controls
+  const moveJobToTeam = (jobId: string, targetTeamId: string | null) => {
     const job = StorageService.getJobById(jobId);
     if (!job) return;
 
     if (targetTeamId) {
       if (!hasFinancePrice(job)) {
-        toast('Finance must set the price before this job can be assigned.');
-        setDraggedJobId(null);
+        toast(t('manager.financeMustSetPrice'));
         return;
       }
 
       setSelectedJobForAssign(job);
       setInitialTeamForModal(targetTeamId);
-    } else {
-      const updatedJob: JobRecord = {
-        ...job,
-        assignedTeamId: null,
-        assignedTeamName: null,
-        assignedMechanicName: null,
-        assignedMechanicPhone: null,
-        auditTrail: [
-          {
-            id: `audit-${Date.now()}`,
-            timestamp: new Date().toISOString().replace('T', ' ').substring(0, 16),
-            action: 'Job Unassigned',
-            performedBy: currentUser.name,
-            userRole: currentUser.role,
-            details: 'Vehicle moved back to the waiting list.',
-            type: 'assignment',
-          },
-          ...(job.auditTrail || []),
-        ],
-      };
-      StorageService.saveJob(updatedJob);
-      onRefreshJobs();
-      toast(`Job ${job.jobNumber} moved back to Waiting.`);
+      return;
     }
+
+    const updatedJob: JobRecord = {
+      ...job,
+      assignedTeamId: null,
+      assignedTeamName: null,
+      assignedMechanicName: null,
+      assignedMechanicPhone: null,
+      auditTrail: [
+        {
+          id: `audit-${Date.now()}`,
+          timestamp: new Date().toISOString().replace('T', ' ').substring(0, 16),
+          action: 'Job Unassigned',
+          performedBy: currentUser.name,
+          userRole: currentUser.role,
+          details: 'Vehicle moved back to the waiting list.',
+          type: 'assignment',
+        },
+        ...(job.auditTrail || []),
+      ],
+    };
+    StorageService.saveJob(updatedJob);
+    onRefreshJobs();
+    toast(`Job ${job.jobNumber} moved back to Waiting.`);
+  };
+
+  // Drop onto a team column → open the simple send screen
+  const handleDropOnTeam = (e: React.DragEvent, targetTeamId: string | null) => {
+    e.preventDefault();
+    const jobId = e.dataTransfer.getData('text/plain') || draggedJobId;
+    if (jobId) moveJobToTeam(jobId, targetTeamId);
     setDraggedJobId(null);
   };
 
@@ -246,6 +265,22 @@ export const ManagerDashboard: React.FC<ManagerDashboardProps> = ({
     toast(isCompleted ? `Vehicle ${job.plateNumber} is Done.` : `Vehicle ${job.plateNumber} is now ${nextStatus}.`);
   };
 
+  const togglePick = (jobId: string) => {
+    setPickedJobId((current) => (current === jobId ? null : jobId));
+  };
+
+  const sendPickedTo = (teamId: string | null) => {
+    if (!pickedJobId) return;
+    moveJobToTeam(pickedJobId, teamId);
+    setPickedJobId(null);
+  };
+
+  const completePicked = () => {
+    if (!pickedJob) return;
+    handleManagerSetStatus(pickedJob, 'Completed');
+    setPickedJobId(null);
+  };
+
   const handleResendSms = (e: React.MouseEvent, job: JobRecord) => {
     e.stopPropagation();
     if (!job.assignedMechanicPhone) {
@@ -264,37 +299,35 @@ export const ManagerDashboard: React.FC<ManagerDashboardProps> = ({
 
   return (
     <div className="space-y-4">
-      {/* Simple header */}
-      <div className="bg-white rounded-card border border-line shadow-soft p-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-        <div className="flex items-center gap-3">
-          <div className="w-11 h-11 rounded-card bg-brand flex items-center justify-center text-white shadow-soft">
-            <Kanban className="w-5 h-5" />
-          </div>
-          <div>
-            <h2 className="text-lg font-extrabold text-ink">Workshop Board</h2>
-            <p className="text-xs text-ink-muted">Drag a vehicle onto a team to give the job. Tap a card to see details.</p>
-          </div>
-        </div>
-        <div className="flex items-center gap-2">
-          {onOpenDatasArchive && (
-            <button
-              type="button"
-              onClick={onOpenDatasArchive}
-              className="flex items-center gap-1.5 px-3 py-2.5 rounded-card bg-sand/60 hover:bg-sand text-ink font-semibold text-xs border border-line cursor-pointer"
-            >
-              <Database className="w-4 h-4 text-brand" />
-              <span>Files ({olderCompletedArchivedCount + olderUnassignedCount})</span>
-            </button>
-          )}
-          <button
-            type="button"
-            onClick={() => setIsTeamModalOpen(true)}
-            className="flex items-center gap-1.5 px-3.5 py-2.5 rounded-card bg-brand hover:bg-brand-hover text-white font-semibold text-xs cursor-pointer shadow-soft"
-          >
-            <Users className="w-4 h-4" />
-            <span>Teams ({teams.length})</span>
-          </button>
-        </div>
+      {/* One slim strip: live counts + team management, no separate header card */}
+      <div className="flex flex-wrap items-center gap-1.5">
+        <span className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-full bg-white border border-line text-[11px] font-semibold text-ink-muted">
+          {t('manager.waiting')}
+          <b className="font-mono text-amber-700 tabular-nums">{unassignedJobsActive.length}</b>
+        </span>
+        <span className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-full bg-white border border-line text-[11px] font-semibold text-ink-muted">
+          {t('manager.beingFixed')}
+          <b className="font-mono text-ink tabular-nums">{inTeamsCount}</b>
+        </span>
+        <span className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-full bg-white border border-line text-[11px] font-semibold text-ink-muted">
+          {t('manager.doneToday')}
+          <b className="font-mono text-emerald-700 tabular-nums">{completedJobsRecent.length}</b>
+        </span>
+        <span className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-full bg-white border border-line text-[11px] font-semibold text-ink-muted">
+          {t('manager.allFiles')}
+          <b className="font-mono text-brand tabular-nums">{jobs.length}</b>
+        </span>
+        <button
+          type="button"
+          onClick={() => setIsTeamModalOpen(true)}
+          className="ml-auto inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-sand/60 hover:bg-sand text-ink font-semibold text-[11px] border border-line cursor-pointer"
+        >
+          <Users className="w-3.5 h-3.5 text-brand" />
+          <span>{t('manager.manageTeams')}</span>
+          <span className="font-mono text-[10px] px-1.5 rounded bg-white border border-line text-ink-muted tabular-nums">
+            {teams.length}
+          </span>
+        </button>
       </div>
 
       {notificationToast && (
@@ -304,63 +337,46 @@ export const ManagerDashboard: React.FC<ManagerDashboardProps> = ({
         </div>
       )}
 
-      {/* Simple counts */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
-        <div className="p-3 bg-white rounded-card border border-line shadow-soft">
-          <p className="text-[11px] font-semibold text-ink-muted">Waiting</p>
-          <p className="text-xl font-bold font-mono text-amber-700 tabular-nums">{unassignedJobsActive.length}</p>
-        </div>
-        <div className="p-3 bg-white rounded-card border border-line shadow-soft">
-          <p className="text-[11px] font-semibold text-ink-muted">Being Fixed</p>
-          <p className="text-xl font-bold font-mono text-ink tabular-nums">{inTeamsCount}</p>
-        </div>
-        <div className="p-3 bg-white rounded-card border border-line shadow-soft">
-          <p className="text-[11px] font-semibold text-ink-muted">Done Today</p>
-          <p className="text-xl font-bold font-mono text-emerald-700 tabular-nums">{completedJobsRecent.length}</p>
-        </div>
-        <div className="p-3 bg-white rounded-card border border-line shadow-soft">
-          <p className="text-[11px] font-semibold text-ink-muted">All Files</p>
-          <p className="text-xl font-bold font-mono text-brand tabular-nums">{jobs.length}</p>
-        </div>
-      </div>
-
       {/* Finance snapshot - same numbers Finance sees */}
       <div className="bg-white rounded-card border border-line shadow-soft p-3.5 space-y-2.5">
         <div className="flex items-center justify-between gap-2">
           <div>
-            <h3 className="text-sm font-bold text-ink">Finance Overview</h3>
-            <p className="text-[11px] text-ink-muted">Connected with the Finance page, all time.</p>
+            <h3 className="text-sm font-bold text-ink">{t('manager.financeOverview')}</h3>
+            <p className="text-[11px] text-ink-muted">{t('manager.financeOverviewDesc')}</p>
           </div>
           <span className="text-[10px] font-semibold text-ink-muted uppercase tracking-wide">
-            All time
+            {t('manager.allTime')}
           </span>
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
           <div className="p-3 rounded-xl bg-emerald-50/70 border border-emerald-200">
             <div className="flex items-center justify-between gap-2">
-              <span className="text-[10px] font-bold text-emerald-800 uppercase tracking-wide">Income</span>
+              <span className="text-[10px] font-bold text-emerald-800 uppercase tracking-wide">{t('manager.income')}</span>
               <ArrowUpRight className="w-4 h-4 text-emerald-700" />
             </div>
             <p className="text-lg font-bold font-mono text-emerald-700 tabular-nums mt-0.5">
               {money(finance.totalIncome)}
             </p>
-            <p className="text-[10px] text-emerald-800/70">Collected payments</p>
+            <p className="text-[10px] text-emerald-800/70">{t('manager.collectedPayments')}</p>
           </div>
           <div className="p-3 rounded-xl bg-coral/5 border border-coral/25">
             <div className="flex items-center justify-between gap-2">
-              <span className="text-[10px] font-bold text-coral uppercase tracking-wide">Expenses</span>
+              <span className="text-[10px] font-bold text-coral uppercase tracking-wide">{t('manager.expenses')}</span>
               <ArrowDownRight className="w-4 h-4 text-coral" />
             </div>
             <p className="text-lg font-bold font-mono text-coral tabular-nums mt-0.5">
               {money(finance.totalExpenses)}
             </p>
             <p className="text-[10px] text-coral/80">
-              Salary {money(finance.salaryExpenses)} / Other {money(finance.operatingExpenses)}
+              {t('manager.salaryOther', {
+                salary: money(finance.salaryExpenses),
+                other: money(finance.operatingExpenses),
+              })}
             </p>
           </div>
           <div className="p-3 rounded-xl bg-sand/40 border border-line">
             <div className="flex items-center justify-between gap-2">
-              <span className="text-[10px] font-bold text-ink-muted uppercase tracking-wide">Net Profit</span>
+              <span className="text-[10px] font-bold text-ink-muted uppercase tracking-wide">{t('manager.netProfit')}</span>
               <Wallet className="w-4 h-4 text-brand" />
             </div>
             <p
@@ -370,7 +386,7 @@ export const ManagerDashboard: React.FC<ManagerDashboardProps> = ({
             >
               {money(finance.netProfit)}
             </p>
-            <p className="text-[10px] text-ink-muted">Income minus expenses</p>
+            <p className="text-[10px] text-ink-muted">{t('manager.incomeMinusExpenses')}</p>
           </div>
         </div>
       </div>
@@ -382,25 +398,52 @@ export const ManagerDashboard: React.FC<ManagerDashboardProps> = ({
           type="text"
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
-          placeholder="Search a plate, job number or mechanic"
+          placeholder={t('manager.searchPlaceholder')}
           className="w-full pl-9 pr-3 py-2.5 text-sm bg-white border border-line rounded-card focus:outline-none focus:ring-2 focus:ring-brand/25 focus:border-brand"
         />
       </div>
 
+      {pickedJob && (
+        <div className="flex items-center gap-2 px-3 py-2 rounded-card bg-brand/10 border border-brand/30 text-xs font-semibold text-ink">
+          <Info className="w-4 h-4 text-brand shrink-0" />
+          <span className="flex-1 min-w-0 truncate">
+            {t('manager.pickedHint', { plate: pickedJob.plateNumber })}
+          </span>
+          <button
+            type="button"
+            onClick={() => setPickedJobId(null)}
+            className="shrink-0 px-2 py-1 rounded-lg bg-white border border-line text-[11px] font-semibold cursor-pointer"
+          >
+            {t('manager.cancelPick')}
+          </button>
+        </div>
+      )}
+
       {/* Board */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 items-start">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 items-start">
         {/* WAITING */}
         <div
           onDragOver={handleDragOver}
           onDrop={(e) => handleDropOnTeam(e, null)}
-          className="bg-amber-50/50 rounded-card p-3 border border-amber-200 min-h-[380px] flex flex-col"
+          className="bg-amber-50/50 rounded-card p-3.5 border border-amber-200 min-h-[380px] flex flex-col"
         >
           <div className="flex items-center justify-between mb-2">
-            <span className="font-bold text-sm text-amber-950">Waiting</span>
+            <span className="font-bold text-sm text-amber-950">{t('manager.waiting')}</span>
             <span className="font-mono text-xs px-2 py-0.5 rounded-md bg-amber-200 text-amber-900 font-bold tabular-nums">
               {unassignedJobsActive.length}
             </span>
           </div>
+
+          {pickedJob && (
+            <button
+              type="button"
+              onClick={() => sendPickedTo(null)}
+              className="mb-2 w-full py-1.5 rounded-lg bg-brand hover:bg-brand-hover text-white text-[11px] font-bold flex items-center justify-center gap-1 cursor-pointer"
+            >
+              <Send className="w-3 h-3" />
+              {t('manager.sendHere')}
+            </button>
+          )}
 
           <div className="space-y-2.5 flex-1">
             {unassignedJobsActive.map((job) => {
@@ -411,21 +454,37 @@ export const ManagerDashboard: React.FC<ManagerDashboardProps> = ({
                   key={job.id}
                   draggable={prepared}
                   onDragStart={(e) => handleDragStart(e, job.id)}
-                  onClick={() => onOpenJobDetail(job)}
-                  className="bg-white p-3 rounded-card border border-line shadow-soft hover:border-brand transition cursor-grab active:cursor-grabbing space-y-2"
+                  onClick={() => (isTouch ? togglePick(job.id) : onOpenJobDetail(job))}
+                  className={`bg-white p-3 rounded-card border shadow-soft hover:border-brand transition cursor-grab active:cursor-grabbing space-y-2 ${
+                    pickedJobId === job.id ? 'border-brand ring-2 ring-brand/40' : 'border-line'
+                  }`}
                 >
                   <div className="flex items-center justify-between">
                     <span className="font-mono font-bold text-xs text-ink">{job.jobNumber}</span>
-                    <PriorityBadge priority={job.priority} />
+                    <div className="flex items-center gap-1">
+                      <PriorityBadge priority={job.priority} />
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onOpenJobDetail(job);
+                        }}
+                        title={t('manager.viewDetails')}
+                        aria-label={t('manager.viewDetails')}
+                        className="h-6 w-6 flex items-center justify-center rounded-md text-ink-muted/70 hover:text-ink hover:bg-sand/60 cursor-pointer"
+                      >
+                        <Info className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
                   </div>
                   <div className="font-bold text-base text-ink font-mono">{job.plateNumber}</div>
                   <div className="text-[11px] text-ink-muted truncate">
                     {job.vehicleMake} {job.vehicleModel} · {job.customerName}
                   </div>
                   <div className="flex items-center justify-between text-[11px] bg-sand/50 rounded-lg px-2 py-1.5 border border-line">
-                    <span className="text-ink-muted">Price</span>
+                    <span className="text-ink-muted">{t('manager.price')}</span>
                     <span className={`font-mono font-bold ${effectivePrice > 0 ? 'text-brand' : 'text-ink-muted'}`}>
-                      {effectivePrice > 0 ? `${effectivePrice.toLocaleString()} ${settings.currency}` : 'Pending'}
+                      {effectivePrice > 0 ? `${effectivePrice.toLocaleString()} ${settings.currency}` : t('manager.pending')}
                     </span>
                   </div>
                   <p className="text-[11px] text-ink-muted line-clamp-2 leading-relaxed">
@@ -442,7 +501,7 @@ export const ManagerDashboard: React.FC<ManagerDashboardProps> = ({
                     onClick={(e) => {
                       e.stopPropagation();
                       if (!prepared) {
-                        toast('Finance must set the price before this job can be assigned.');
+                        toast(t('manager.financeMustSetPrice'));
                         return;
                       }
                       setSelectedJobForAssign(job);
@@ -451,7 +510,7 @@ export const ManagerDashboard: React.FC<ManagerDashboardProps> = ({
                     className="w-full px-3 py-2 bg-brand hover:bg-brand-hover disabled:bg-line disabled:text-ink-muted disabled:cursor-not-allowed text-white rounded-lg text-xs font-bold flex items-center justify-center gap-1.5 cursor-pointer"
                   >
                     <Send className="w-3.5 h-3.5" />
-                    <span>{prepared ? 'Give to a team' : 'Waiting for Finance price'}</span>
+                    <span>{prepared ? t('manager.giveToTeam') : t('manager.waitingFinance')}</span>
                   </button>
                 </div>
               );
@@ -460,7 +519,7 @@ export const ManagerDashboard: React.FC<ManagerDashboardProps> = ({
             {unassignedJobsActive.length === 0 && (
               <div className="h-36 border-2 border-dashed border-amber-200 rounded-card flex flex-col items-center justify-center text-center p-4 text-xs text-amber-800/70">
                 <CheckCircle2 className="w-5 h-5 text-amber-500 mb-1" />
-                <span>Nothing waiting. All cars are with a team.</span>
+                <span>{t('manager.nothingWaiting')}</span>
               </div>
             )}
 
@@ -470,7 +529,7 @@ export const ManagerDashboard: React.FC<ManagerDashboardProps> = ({
                 onClick={onOpenDatasArchive}
                 className="w-full p-2 rounded-card bg-amber-100 hover:bg-amber-200 text-amber-900 text-xs font-semibold text-center transition cursor-pointer"
               >
-                {olderUnassignedCount} older in Files →
+                {t('manager.olderInFiles', { count: olderUnassignedCount })} →
               </button>
             )}
           </div>
@@ -486,7 +545,7 @@ export const ManagerDashboard: React.FC<ManagerDashboardProps> = ({
               key={team.id}
               onDragOver={handleDragOver}
               onDrop={(e) => handleDropOnTeam(e, team.id)}
-              className="bg-coral/10 rounded-card p-3 border border-coral/30 min-h-[380px] flex flex-col"
+              className="bg-coral/10 rounded-card p-3.5 border border-coral/30 min-h-[380px] flex flex-col"
             >
               <div className="flex items-center justify-between mb-1">
                 <span className="font-bold text-sm text-ink truncate" title={team.name}>
@@ -496,6 +555,16 @@ export const ManagerDashboard: React.FC<ManagerDashboardProps> = ({
                   {teamJobs.length}
                 </span>
               </div>
+              {pickedJob && (
+                <button
+                  type="button"
+                  onClick={() => sendPickedTo(team.id)}
+                  className="mb-2 w-full py-1.5 rounded-lg bg-brand hover:bg-brand-hover text-white text-[11px] font-bold flex items-center justify-center gap-1 cursor-pointer"
+                >
+                  <Send className="w-3 h-3" />
+                  {t('manager.sendHere')}
+                </button>
+              )}
               <div className="text-[10px] text-ink-muted mb-2 flex items-center gap-1">
                 <Phone className="w-3 h-3 text-brand" />
                 <span>{team.leadMechanicName} · {team.leadMechanicPhone}</span>
@@ -510,12 +579,28 @@ export const ManagerDashboard: React.FC<ManagerDashboardProps> = ({
                       key={job.id}
                       draggable
                       onDragStart={(e) => handleDragStart(e, job.id)}
-                      onClick={() => onOpenJobDetail(job)}
-                      className="bg-white p-3 rounded-card border border-line shadow-soft hover:border-brand transition cursor-grab active:cursor-grabbing space-y-2"
+                      onClick={() => (isTouch ? togglePick(job.id) : onOpenJobDetail(job))}
+                      className={`bg-white p-3 rounded-card border shadow-soft hover:border-brand transition cursor-grab active:cursor-grabbing space-y-2 ${
+                        pickedJobId === job.id ? 'border-brand ring-2 ring-brand/40' : 'border-line'
+                      }`}
                     >
                       <div className="flex items-center justify-between">
                         <span className="font-mono font-bold text-xs text-ink">{job.jobNumber}</span>
-                        <PriorityBadge priority={job.priority} />
+                        <div className="flex items-center gap-1">
+                          <PriorityBadge priority={job.priority} />
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              onOpenJobDetail(job);
+                            }}
+                            title={t('manager.viewDetails')}
+                            aria-label={t('manager.viewDetails')}
+                            className="h-6 w-6 flex items-center justify-center rounded-md text-ink-muted/70 hover:text-ink hover:bg-sand/60 cursor-pointer"
+                          >
+                            <Info className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
                       </div>
                       <div className="font-bold text-base text-ink font-mono">{job.plateNumber}</div>
                       <div className="text-[11px] text-ink-muted truncate">
@@ -541,7 +626,7 @@ export const ManagerDashboard: React.FC<ManagerDashboardProps> = ({
                         }`}
                       >
                         {smsSent ? <Check className="w-3 h-3" /> : <Smartphone className="w-3 h-3" />}
-                        <span>{smsSent ? 'SMS sent to mechanic' : 'No SMS yet'}</span>
+                        <span>{smsSent ? t('manager.smsSent') : t('manager.noSms')}</span>
                       </div>
 
                       <div className="pt-2 border-t border-line flex items-center gap-1.5" onClick={(e) => e.stopPropagation()}>
@@ -550,15 +635,15 @@ export const ManagerDashboard: React.FC<ManagerDashboardProps> = ({
                           onChange={(e) => handleManagerSetStatus(job, e.target.value as JobStatus)}
                           className="flex-1 px-2 py-1.5 bg-cream border border-line rounded-lg text-[11px] font-semibold text-ink cursor-pointer"
                         >
-                          <option value="Ready to Start">Ready</option>
-                          <option value="In Progress">Working</option>
-                          <option value="Quality Check">Checking</option>
-                          <option value="Completed">Done</option>
+                          <option value="Ready to Start">{t('manager.ready')}</option>
+                          <option value="In Progress">{t('manager.working')}</option>
+                          <option value="Quality Check">{t('manager.checking')}</option>
+                          <option value="Completed">{t('manager.done')}</option>
                         </select>
                         <button
                           type="button"
                           onClick={(e) => handleResendSms(e, job)}
-                          title="Send the SMS again"
+                          title={t('manager.resendSms')}
                           className="h-8 w-8 flex items-center justify-center bg-white border border-line hover:bg-sand rounded-lg cursor-pointer"
                         >
                           <Send className="w-3.5 h-3.5 text-brand" />
@@ -571,7 +656,7 @@ export const ManagerDashboard: React.FC<ManagerDashboardProps> = ({
                           }}
                           className="px-2.5 py-1.5 text-[11px] font-bold text-emerald-800 bg-emerald-100 hover:bg-emerald-200 rounded-lg cursor-pointer"
                         >
-                          Done ✓
+                          {t('manager.done')} ✓
                         </button>
                       </div>
                     </div>
@@ -580,7 +665,7 @@ export const ManagerDashboard: React.FC<ManagerDashboardProps> = ({
 
                 {teamJobs.length === 0 && (
                   <div className="h-36 border-2 border-dashed border-coral/30 rounded-card flex items-center justify-center text-center p-4 text-xs text-ink-muted/70">
-                    Drop a vehicle here
+                    {t('manager.dropVehicle')}
                   </div>
                 )}
               </div>
@@ -592,14 +677,25 @@ export const ManagerDashboard: React.FC<ManagerDashboardProps> = ({
         <div
           onDragOver={handleDragOver}
           onDrop={handleDropOnCompleted}
-          className="bg-emerald-50/50 rounded-card p-3 border border-emerald-200 min-h-[380px] flex flex-col"
+          className="bg-emerald-50/50 rounded-card p-3.5 border border-emerald-200 min-h-[380px] flex flex-col"
         >
           <div className="flex items-center justify-between mb-2">
-            <span className="font-bold text-sm text-emerald-950">Done Today</span>
+            <span className="font-bold text-sm text-emerald-950">{t('manager.doneToday')}</span>
             <span className="font-mono text-xs px-2 py-0.5 rounded-md bg-white border border-emerald-200 text-emerald-800 font-bold tabular-nums">
               {completedJobsRecent.length}
             </span>
           </div>
+
+          {pickedJob && (
+            <button
+              type="button"
+              onClick={completePicked}
+              className="mb-2 w-full py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-[11px] font-bold flex items-center justify-center gap-1 cursor-pointer"
+            >
+              <Check className="w-3 h-3" />
+              {t('manager.sendHere')}
+            </button>
+          )}
 
           <div className="space-y-2.5 flex-1">
             {completedJobsRecent.map((job) => (
@@ -611,7 +707,7 @@ export const ManagerDashboard: React.FC<ManagerDashboardProps> = ({
                 <div className="flex items-center justify-between">
                   <span className="font-mono font-bold text-xs text-ink">{job.jobNumber}</span>
                   <span className="text-[10px] text-emerald-700 font-bold bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200">
-                    Done ✓
+                    {t('manager.done')} ✓
                   </span>
                 </div>
                 <div className="font-bold text-base text-ink font-mono">{job.plateNumber}</div>
@@ -619,7 +715,7 @@ export const ManagerDashboard: React.FC<ManagerDashboardProps> = ({
                   {job.vehicleMake} {job.vehicleModel}
                 </div>
                 <div className="text-[10px] text-ink-muted flex items-center justify-between">
-                  <span>Payment: {job.paymentStatus}</span>
+                  <span>{t('manager.payment')}: {job.paymentStatus}</span>
                   <span className="font-mono">
                     {(job.finalApprovedPrice || job.totalEstimatedCost).toLocaleString()} {settings.currency}
                   </span>
@@ -629,7 +725,7 @@ export const ManagerDashboard: React.FC<ManagerDashboardProps> = ({
 
             {completedJobsRecent.length === 0 && (
               <div className="h-36 border-2 border-dashed border-emerald-200 rounded-card flex items-center justify-center text-center p-4 text-xs text-emerald-700/60">
-                Cars finished today show here
+                {t('manager.carsFinishedToday')}
               </div>
             )}
 
@@ -639,7 +735,7 @@ export const ManagerDashboard: React.FC<ManagerDashboardProps> = ({
                 onClick={onOpenDatasArchive}
                 className="w-full p-2 rounded-card bg-emerald-100 hover:bg-emerald-200 text-emerald-900 text-xs font-semibold text-center transition cursor-pointer"
               >
-                {olderCompletedArchivedCount} older in Files →
+                {t('manager.olderInFiles', { count: olderCompletedArchivedCount })} →
               </button>
             )}
           </div>

@@ -2,11 +2,54 @@ import { jsPDF } from 'jspdf';
 import { GarageSettings, JobRecord, MechanicTeam } from '../types';
 import { JOB_CARD_SECTIONS, getFixItems } from '../components/reception/jobCardCheckpoints';
 
+export interface GeneratedPdf {
+  blob: Blob;
+  filename: string;
+}
+
+interface PdfOutputOptions {
+  /** Set to false to build the PDF for sharing without downloading it. */
+  download?: boolean;
+}
+
+export interface RepairEstimateRow {
+  description: string;
+  quantity: number;
+  unitPrice: number;
+}
+
+export interface RepairEstimateInput {
+  estimateNumber: string;
+  date: string;
+  inspectionDate?: string;
+  accidentDate?: string;
+  ownerName: string;
+  vehicleModel: string;
+  plateNumber: string;
+  insuranceCompany: string;
+  rows: RepairEstimateRow[];
+  includeVat: boolean;
+  vatRate: number;
+  notes: string;
+  preparedByName: string;
+  signature?: string;
+  /** Scanned stamp image used on print, PDF and share. */
+  stampImage?: string;
+  standardPrices: Array<{ label: string; amount: number }>;
+}
+
 export class PdfService {
+  private static finish(doc: jsPDF, filename: string, options?: PdfOutputOptions): GeneratedPdf {
+    if (options?.download !== false) {
+      doc.save(filename);
+    }
+    return { blob: doc.output('blob'), filename };
+  }
+
   /**
    * Generates a customer quotation PDF
    */
-  static generateQuotationPdf(job: JobRecord, settings: GarageSettings) {
+  static generateQuotationPdf(job: JobRecord, settings: GarageSettings, options?: PdfOutputOptions): GeneratedPdf {
     const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
     const primaryRed = [128, 0, 32]; // #800020
     const charcoal = [28, 25, 23];
@@ -218,13 +261,13 @@ export class PdfService {
       { align: 'center' }
     );
 
-    doc.save(`Quotation_${job.jobNumber}_${job.plateNumber}.pdf`);
+    return PdfService.finish(doc, `Quotation_${job.jobNumber}_${job.plateNumber}.pdf`, options);
   }
 
   /**
    * Generates a workshop repair job card for mechanics
    */
-  static generateRepairJobCardPdf(job: JobRecord, settings: GarageSettings) {
+  static generateRepairJobCardPdf(job: JobRecord, settings: GarageSettings, options?: PdfOutputOptions): GeneratedPdf {
     const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
     const primaryRed: [number, number, number] = [128, 0, 32];
     const charcoal: [number, number, number] = [28, 25, 23];
@@ -485,13 +528,13 @@ export class PdfService {
       Math.min(y, bottomLimit)
     );
 
-    doc.save(`JobCard_${job.jobNumber}.pdf`);
+    return PdfService.finish(doc, `JobCard_${job.jobNumber}.pdf`, options);
   }
 
   /**
    * Generates Invoice / Receipt PDF
    */
-  static generateInvoicePdf(job: JobRecord, settings: GarageSettings) {
+  static generateInvoicePdf(job: JobRecord, settings: GarageSettings, options?: PdfOutputOptions): GeneratedPdf {
     const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
     const primaryRed = [128, 0, 32];
     const charcoal = [28, 25, 23];
@@ -635,13 +678,593 @@ export class PdfService {
     doc.setFontSize(7.5);
     doc.text('All mechanical repairs carry a standard 30-day / 1,000km workshop warranty on workmanship.', 105, y + 5, { align: 'center' });
 
-    doc.save(`Invoice_${job.jobNumber}.pdf`);
+    return PdfService.finish(doc, `Invoice_${job.jobNumber}.pdf`, options);
+  }
+
+  /**
+   * Generates an insurance payment voucher (payment collection form) with an
+   * itemised payment list, signature lines and a stamp area for the insurer.
+   */
+  static generateInsurancePaymentPdf(
+    job: JobRecord,
+    settings: GarageSettings,
+    options?: PdfOutputOptions
+  ): GeneratedPdf {
+    const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+    const brand: [number, number, number] = [128, 0, 32];
+    const ink: [number, number, number] = [28, 25, 23];
+    const margin = 15;
+    const pageW = 210;
+    const contentW = pageW - margin * 2;
+
+    // Header band
+    doc.setFillColor(brand[0], brand[1], brand[2]);
+    doc.rect(0, 0, pageW, 20, 'F');
+    doc.setTextColor(255, 255, 255);
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(15);
+    doc.text(settings.garageName.toUpperCase(), margin, 12.5);
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(9);
+    doc.text('INSURANCE PAYMENT VOUCHER', pageW - margin, 12.5, { align: 'right' });
+
+    // Garage details
+    doc.setTextColor(ink[0], ink[1], ink[2]);
+    doc.setFontSize(8.5);
+    doc.text(settings.address, margin, 27);
+    doc.text(`Phone: ${settings.phone}  |  Email: ${settings.email}`, margin, 31.5);
+    doc.text(`TIN: ${settings.taxId}`, margin, 36);
+
+    // Voucher meta box
+    doc.setFillColor(245, 246, 248);
+    doc.roundedRect(132, 24, 63, 18, 2, 2, 'F');
+    doc.setFontSize(8);
+    doc.setFont('helvetica', 'bold');
+    doc.text('Voucher No:', 136, 29.5);
+    doc.text('Date:', 136, 34.5);
+    doc.text('Claim Ref:', 136, 39.5);
+    doc.setFont('helvetica', 'normal');
+    doc.text(job.jobNumber, 192, 29.5, { align: 'right' });
+    doc.text(new Date().toISOString().substring(0, 10), 192, 34.5, { align: 'right' });
+    doc.text(job.claimNumber || '—', 192, 39.5, { align: 'right' });
+
+    doc.setDrawColor(220, 224, 230);
+    doc.line(margin, 44, pageW - margin, 44);
+
+    // Payer & vehicle details
+    doc.setFontSize(9);
+    doc.setFont('helvetica', 'bold');
+    doc.text('INSURANCE PAYER', margin, 51);
+    doc.text('VEHICLE & CUSTOMER', 110, 51);
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(8.5);
+    doc.text(
+      `Insurance Co: ${job.hasInsurance ? job.insuranceCompany || '—' : 'Direct Customer'}`,
+      margin,
+      57
+    );
+    doc.text(`Policy / Claim No: ${job.claimNumber || '—'}`, margin, 62);
+    doc.text(`Customer: ${job.customerName}`, margin, 67);
+    doc.text(`Phone: ${job.customerPhone}`, margin, 72);
+
+    doc.text(`Vehicle: ${job.vehicleMake} ${job.vehicleModel}`, 110, 57);
+    doc.text(`Plate No: ${job.plateNumber}`, 110, 62);
+    doc.text(`VIN: ${job.vin || '—'}`, 110, 67);
+    doc.text(`Mileage: ${job.mileage ? `${job.mileage.toLocaleString()} km` : '—'}`, 110, 72);
+
+    // Payment list
+    let y = 81;
+    doc.setFontSize(9.5);
+    doc.setFont('helvetica', 'bold');
+    doc.text('PAYMENT LIST — SERVICES CHARGED TO INSURANCE', margin, y);
+    y += 4;
+
+    doc.setFillColor(ink[0], ink[1], ink[2]);
+    doc.rect(margin, y, contentW, 7.5, 'F');
+    doc.setTextColor(255, 255, 255);
+    doc.setFontSize(8);
+    doc.text('#', margin + 3, y + 5);
+    doc.text('DESCRIPTION OF WORK', margin + 12, y + 5);
+    doc.text('QTY', margin + 112, y + 5, { align: 'right' });
+    doc.text('UNIT PRICE', margin + 143, y + 5, { align: 'right' });
+    doc.text(`AMOUNT (${settings.currency})`, pageW - margin - 3, y + 5, { align: 'right' });
+    y += 8;
+
+    const rows: Array<{ label: string; qty: number; unit: number }> = [];
+    if (job.priceItems && job.priceItems.length > 0) {
+      job.priceItems.forEach((item) => {
+        rows.push({
+          label: item.action ? `${item.name} — ${item.action}` : item.name,
+          qty: 1,
+          unit: item.amount || 0,
+        });
+      });
+    } else {
+      if (job.laborCost > 0) {
+        rows.push({ label: 'Workshop Labor', qty: 1, unit: job.laborCost });
+      }
+      (job.spareParts || []).forEach((part) => {
+        rows.push({ label: `Part: ${part.name}`, qty: part.quantity, unit: part.unitPrice });
+      });
+      // Example body-work lines so the payment list is never empty.
+      if (rows.length === 0) {
+        rows.push({ label: 'Body Paint', qty: 1, unit: 2000 });
+        rows.push({ label: 'Fender Body Work', qty: 1, unit: 2000 });
+      }
+    }
+
+    const shownRows = rows.slice(0, 10);
+    doc.setTextColor(ink[0], ink[1], ink[2]);
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(8.5);
+    shownRows.forEach((row, idx) => {
+      if (idx % 2 === 0) {
+        doc.setFillColor(250, 248, 246);
+        doc.rect(margin, y, contentW, 7, 'F');
+      }
+      const amount = row.qty * row.unit;
+      doc.text(String(idx + 1), margin + 3, y + 4.7);
+      doc.text(row.label.substring(0, 46), margin + 12, y + 4.7);
+      doc.text(String(row.qty), margin + 112, y + 4.7, { align: 'right' });
+      doc.text(row.unit.toLocaleString(), margin + 143, y + 4.7, { align: 'right' });
+      doc.text(amount.toLocaleString(), pageW - margin - 3, y + 4.7, { align: 'right' });
+      y += 7;
+    });
+
+    doc.setDrawColor(220, 224, 230);
+    doc.line(margin, y, pageW - margin, y);
+    y += 3;
+
+    if (rows.length > shownRows.length) {
+      doc.setFont('helvetica', 'italic');
+      doc.setFontSize(7.5);
+      doc.text(`+ ${rows.length - shownRows.length} more item(s) — see the attached invoice.`, margin + 12, y + 4);
+      y += 6;
+    }
+
+    const subtotal = rows.reduce((sum, row) => sum + row.qty * row.unit, 0);
+    const taxRate = job.taxRate || 0;
+    const vat = Math.round((subtotal - (job.discount || 0)) * (taxRate / 100));
+    const total = Math.max(0, subtotal - (job.discount || 0) + vat);
+
+    doc.setFontSize(8.5);
+    doc.setFont('helvetica', 'normal');
+    doc.text('Subtotal:', margin + 130, y + 4, { align: 'right' });
+    doc.text(`${settings.currency} ${subtotal.toLocaleString()}`, pageW - margin - 3, y + 4, { align: 'right' });
+    y += 5.5;
+
+    if (job.discount > 0) {
+      doc.text('Discount:', margin + 130, y + 4, { align: 'right' });
+      doc.text(`-${settings.currency} ${job.discount.toLocaleString()}`, pageW - margin - 3, y + 4, {
+        align: 'right',
+      });
+      y += 5.5;
+    }
+
+    doc.text(`VAT / Tax (${taxRate}%):`, margin + 130, y + 4, { align: 'right' });
+    doc.text(`${settings.currency} ${vat.toLocaleString()}`, pageW - margin - 3, y + 4, { align: 'right' });
+    y += 7;
+
+    doc.setFillColor(245, 246, 248);
+    doc.roundedRect(margin + 100, y, 95, 10, 1.5, 1.5, 'F');
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(9.5);
+    doc.text('TOTAL PAYABLE:', margin + 135, y + 6.5, { align: 'right' });
+    doc.setTextColor(brand[0], brand[1], brand[2]);
+    doc.text(`${settings.currency} ${total.toLocaleString()}`, pageW - margin - 3, y + 6.5, { align: 'right' });
+    doc.setTextColor(ink[0], ink[1], ink[2]);
+
+    y += 18;
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(9);
+    doc.text('DECLARATION', margin, y);
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(8);
+    const declaration = doc.splitTextToSize(
+      'Received from the insurance company named above the amount stated in this voucher for the repair works listed. This voucher is valid only when it is signed and stamped by the insurance representative and the garage. The garage confirms that the listed works have been completed on the vehicle.',
+      contentW
+    );
+    doc.text(declaration, margin, y + 5);
+    y += 5 + declaration.length * 4 + 8;
+
+    // Signatures
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(8.5);
+    doc.text('SIGNATURES', margin, y);
+    y += 4;
+
+    const sigWidth = 50;
+    const sigTop = y + 10;
+    doc.setDrawColor(150, 150, 150);
+    doc.line(margin, sigTop, margin + sigWidth, sigTop);
+    doc.line(margin + 58, sigTop, margin + 58 + sigWidth, sigTop);
+    doc.line(margin, sigTop + 18, margin + sigWidth, sigTop + 18);
+    doc.line(margin + 58, sigTop + 18, margin + 58 + sigWidth, sigTop + 18);
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(7);
+    doc.text('Insurance Representative (Sign)', margin, sigTop + 3.5);
+    doc.text('Garage Authorized Signature', margin + 58, sigTop + 3.5);
+    doc.text('Customer / Driver', margin, sigTop + 21.5);
+    doc.text('Date', margin + 58, sigTop + 21.5);
+
+    // Stamp area with a sample circular stamp
+    const stampX = margin + 122;
+    const stampY = y - 6;
+    const stampW = 58;
+    const stampH = 38;
+    doc.setDrawColor(180, 185, 195);
+    doc.setLineDashPattern([2, 2], 0);
+    doc.roundedRect(stampX, stampY, stampW, stampH, 2, 2);
+    doc.setLineDashPattern([], 0);
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(6.5);
+    doc.text('OFFICIAL STAMP / SEAL', stampX + stampW / 2, stampY + 4.5, { align: 'center' });
+
+    const cx = stampX + stampW / 2;
+    const cy = stampY + 21;
+    doc.setDrawColor(brand[0], brand[1], brand[2]);
+    doc.setTextColor(brand[0], brand[1], brand[2]);
+    doc.setLineWidth(0.5);
+    doc.circle(cx, cy, 11);
+    doc.circle(cx, cy, 9.5);
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(4.2);
+    doc.text('FEYAMET AUTO GARAGE', cx, cy - 4, { align: 'center' });
+    doc.setFontSize(6);
+    doc.text('PAID', cx, cy + 1.5, { align: 'center' });
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(3.6);
+    doc.text('ADDIS ABABA', cx, cy + 5, { align: 'center' });
+    doc.setLineWidth(0.2);
+    doc.setFont('helvetica', 'italic');
+    doc.setFontSize(4.6);
+    doc.text('Sample stamp', cx, stampY + stampH - 2, { align: 'center' });
+
+    // Footer
+    doc.setTextColor(120, 120, 120);
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(7);
+    doc.text(
+      `Generated ${new Date().toISOString().substring(0, 10)} · ${settings.garageName} · ${settings.phone}`,
+      pageW / 2,
+      290,
+      { align: 'center' }
+    );
+
+    return PdfService.finish(doc, `Insurance_Payment_${job.jobNumber}.pdf`, options);
+  }
+
+  /**
+   * Generates the official repair & insurance cost estimate sheet that a
+   * driver can print and hand to an insurance company or another garage.
+   */
+  static generateRepairEstimatePdf(
+    estimate: RepairEstimateInput,
+    settings: GarageSettings,
+    options?: PdfOutputOptions
+  ): GeneratedPdf {
+    const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+    const brand: [number, number, number] = [128, 0, 32];
+    const ink: [number, number, number] = [28, 25, 23];
+    const margin = 15;
+    const pageW = 210;
+    const bottom = 280;
+    const contentW = pageW - margin * 2;
+    const money = (value: number) => value.toLocaleString();
+
+    const drawHeader = () => {
+      doc.setFillColor(brand[0], brand[1], brand[2]);
+      doc.rect(0, 0, pageW, 20, 'F');
+      doc.setTextColor(255, 255, 255);
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(15);
+      doc.text(settings.garageName.toUpperCase(), margin, 10);
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(7.6);
+      doc.text('OFFICIAL VEHICLE REPAIR & INSURANCE COST ESTIMATE', margin, 15.5);
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(10);
+      doc.text(estimate.estimateNumber, pageW - margin, 10, { align: 'right' });
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(7.4);
+      doc.text(`Date: ${estimate.date}`, pageW - margin, 15.5, { align: 'right' });
+      doc.setTextColor(ink[0], ink[1], ink[2]);
+    };
+
+    drawHeader();
+
+    // Garage head office details
+    doc.setFontSize(8);
+    doc.setFont('helvetica', 'normal');
+    doc.text('Head Office:', margin, 26);
+    doc.text(settings.address, margin + 21, 26);
+    doc.text(`Phone: ${settings.phone}`, margin, 30.5);
+    doc.text(`Email: ${settings.email}`, margin + 92, 30.5);
+    doc.text(`TIN No: ${settings.taxId}`, margin, 35);
+
+    // Client & vehicle block
+    let y = 41;
+    doc.setFillColor(245, 246, 248);
+    doc.rect(margin, y, contentW, 6.5, 'F');
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(8.4);
+    doc.text('CLIENT & VEHICLE INFORMATION', margin + 3, y + 4.5);
+    y += 6.5;
+
+    const leftX = margin + 3;
+    const rightX = margin + 96;
+    const fields: Array<[string, string, number]> = [
+      ['Owner / Driver Name', estimate.ownerName, leftX],
+      ['Insurance Company', estimate.insuranceCompany, rightX],
+      ['Vehicle Model', estimate.vehicleModel, leftX],
+      ['License Plate No', estimate.plateNumber, rightX],
+      ['Date of Accident', estimate.accidentDate || '—', leftX],
+      ['Inspection Date', estimate.inspectionDate || estimate.date, rightX],
+    ];
+    fields.forEach(([label, value, x], idx) => {
+      const rowY = y + 6 + Math.floor(idx / 2) * 7;
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(7.2);
+      doc.text(`${label}:`, x, rowY);
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(8);
+      doc.text(value || '—', x + 38, rowY);
+      doc.setDrawColor(214, 216, 220);
+      doc.line(x + 37, rowY + 1, x + 87, rowY + 1);
+    });
+    y += 28;
+
+    // Cost breakdown table
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(9);
+    doc.text('COST BREAKDOWN — PARTS & LABOR', margin, y);
+    y += 3.5;
+    doc.setFillColor(ink[0], ink[1], ink[2]);
+    doc.rect(margin, y, contentW, 7.5, 'F');
+    doc.setTextColor(255, 255, 255);
+    doc.setFontSize(7.8);
+    doc.text('NO.', margin + 3, y + 5);
+    doc.text('DESCRIPTION OF PARTS & LABOR WORK', margin + 14, y + 5);
+    doc.text('QTY', margin + 116, y + 5, { align: 'right' });
+    doc.text('UNIT PRICE', margin + 145, y + 5, { align: 'right' });
+    doc.text(`TOTAL (${settings.currency})`, pageW - margin - 3, y + 5, { align: 'right' });
+    y += 8;
+
+    const drawContinuation = () => {
+      doc.addPage();
+      drawHeader();
+      doc.setFillColor(ink[0], ink[1], ink[2]);
+      doc.rect(margin, 28, contentW, 7.5, 'F');
+      doc.setTextColor(255, 255, 255);
+      doc.setFontSize(7.8);
+      doc.text('NO.', margin + 3, 33);
+      doc.text('DESCRIPTION OF PARTS & LABOR WORK', margin + 14, 33);
+      doc.text('QTY', margin + 116, 33, { align: 'right' });
+      doc.text('UNIT PRICE', margin + 145, 33, { align: 'right' });
+      doc.text(`TOTAL (${settings.currency})`, pageW - margin - 3, 33, { align: 'right' });
+      doc.setTextColor(ink[0], ink[1], ink[2]);
+      y = 37;
+    };
+
+    doc.setTextColor(ink[0], ink[1], ink[2]);
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(8.2);
+    const rows = estimate.rows.filter((row) => row.description.trim() !== '' || row.unitPrice > 0);
+    if (rows.length === 0) {
+      doc.setFont('helvetica', 'italic');
+      doc.text('No cost lines added yet.', margin + 14, y + 4.7);
+      y += 7;
+    }
+    rows.forEach((row, idx) => {
+      if (y + 7 > 222) drawContinuation();
+      if (idx % 2 === 0) {
+        doc.setFillColor(250, 248, 246);
+        doc.rect(margin, y, contentW, 7, 'F');
+      }
+      const total = row.quantity * row.unitPrice;
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(8.2);
+      doc.text(String(idx + 1), margin + 3, y + 4.7);
+      doc.text(row.description.substring(0, 58) || '—', margin + 14, y + 4.7);
+      doc.text(String(row.quantity), margin + 116, y + 4.7, { align: 'right' });
+      doc.text(money(row.unitPrice), margin + 145, y + 4.7, { align: 'right' });
+      doc.text(money(total), pageW - margin - 3, y + 4.7, { align: 'right' });
+      y += 7;
+    });
+
+    doc.setDrawColor(214, 216, 220);
+    doc.line(margin, y, pageW - margin, y);
+    y += 5;
+
+    const subtotal = rows.reduce((sum, row) => sum + row.quantity * row.unitPrice, 0);
+    const vat = estimate.includeVat ? Math.round(subtotal * (estimate.vatRate / 100)) : 0;
+    const grandTotal = subtotal + vat;
+
+    // Fixed standard prices for comparison
+    if (estimate.standardPrices.length > 0) {
+      if (y + 22 > bottom) {
+        doc.addPage();
+        drawHeader();
+        y = 28;
+      }
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(7.6);
+      doc.text('FIXED WORKSHOP PRICE LIST (standard items)', margin, y + 3);
+      y += 6;
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(7.2);
+      const half = Math.ceil(estimate.standardPrices.length / 2);
+      estimate.standardPrices.forEach((item, idx) => {
+        const col = idx < half ? 0 : 1;
+        const row = idx < half ? idx : idx - half;
+        const x = margin + col * (contentW / 2);
+        doc.text(item.label, x, y + row * 4.4);
+        doc.text(`${settings.currency} ${money(item.amount)}`, x + contentW / 2 - 6, y + row * 4.4, {
+          align: 'right',
+        });
+      });
+      y += half * 4.4 + 6;
+    }
+
+    // Totals
+    if (y + 40 > bottom) {
+      doc.addPage();
+      drawHeader();
+      y = 30;
+    }
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(8.4);
+    doc.text('Subtotal:', margin + 130, y, { align: 'right' });
+    doc.text(`${settings.currency} ${money(subtotal)}`, pageW - margin - 3, y, { align: 'right' });
+    y += 5.5;
+    doc.text(
+      `VAT / Tax (${estimate.includeVat ? estimate.vatRate : 0}%):`,
+      margin + 130,
+      y,
+      { align: 'right' }
+    );
+    doc.text(`${settings.currency} ${money(vat)}`, pageW - margin - 3, y, { align: 'right' });
+    y += 7;
+
+    doc.setFillColor(brand[0], brand[1], brand[2]);
+    doc.roundedRect(margin + 100, y - 4, contentW - 100, 11, 1.5, 1.5, 'F');
+    doc.setTextColor(255, 255, 255);
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(9.6);
+    doc.text('GRAND TOTAL:', margin + 145, y + 3.2, { align: 'right' });
+    doc.text(`${settings.currency} ${money(grandTotal)}`, pageW - margin - 4, y + 3.2, {
+      align: 'right',
+    });
+    doc.setTextColor(ink[0], ink[1], ink[2]);
+    y += 16;
+
+    // Notes / declaration
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(8.4);
+    doc.text('TERMS & DECLARATION', margin, y);
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(7.4);
+    const notes =
+      estimate.notes.trim() ||
+      'This estimate is prepared from a physical inspection of the vehicle. Prices cover the parts and labor listed above only. Hidden damage found after dismantling will be estimated separately. The estimate is valid for 14 days from the inspection date.';
+    const noteLines = doc.splitTextToSize(notes, contentW);
+    doc.text(noteLines, margin, y + 4.5);
+    y += 4.5 + noteLines.length * 3.6 + 8;
+
+    // Signature & stamp
+    if (y + 46 > bottom) {
+      doc.addPage();
+      drawHeader();
+      y = 30;
+    }
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(8.4);
+    doc.text('AUTHORIZATION', margin, y);
+    y += 4;
+
+    const sigLineY = y + 14;
+    doc.setDrawColor(150, 150, 150);
+    doc.line(margin, sigLineY, margin + 78, sigLineY);
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(7.2);
+    doc.text('Garage Representative Signature', margin, sigLineY + 3.6);
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(7.8);
+    doc.text(estimate.preparedByName || 'Authorized Staff', margin, sigLineY + 8.4);
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(7);
+    doc.text('Name & position', margin, sigLineY + 12);
+
+    if (estimate.signature && estimate.signature.startsWith('data:image/')) {
+      try {
+        doc.addImage(estimate.signature, 'PNG', margin + 2, sigLineY - 12, 54, 11);
+      } catch {
+        // keep the printed line if the image cannot be embedded
+      }
+    }
+
+    // Official stamp: the garage's scanned stamp image, in blue by default.
+    const stampInk: [number, number, number] = [30, 64, 175];
+    const stampX = margin + 118;
+    const stampY = y - 2;
+    const stampW = 62;
+    const stampH = 38;
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(6.2);
+    doc.setTextColor(120, 120, 120);
+    doc.text('OFFICIAL STAMP / SEAL', stampX + stampW / 2, stampY + 3.6, { align: 'center' });
+    doc.setTextColor(ink[0], ink[1], ink[2]);
+
+    const drawVectorStamp = () => {
+      doc.setDrawColor(180, 185, 195);
+      doc.setLineDashPattern([2, 2], 0);
+      doc.roundedRect(stampX, stampY + 5, stampW, stampH - 5, 2, 2);
+      doc.setLineDashPattern([], 0);
+      const cx = stampX + stampW / 2;
+      const cy = stampY + 22;
+      doc.setDrawColor(stampInk[0], stampInk[1], stampInk[2]);
+      doc.setTextColor(stampInk[0], stampInk[1], stampInk[2]);
+      doc.setLineWidth(0.6);
+      doc.circle(cx, cy, 11);
+      doc.circle(cx, cy, 9.4);
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(4.2);
+      doc.text('FEYAMET AUTO GARAGE', cx, cy - 4, { align: 'center' });
+      doc.setFontSize(6);
+      doc.text('ESTIMATE', cx, cy + 1.5, { align: 'center' });
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(3.6);
+      doc.text('ADDIS ABABA', cx, cy + 5, { align: 'center' });
+      doc.setLineWidth(0.2);
+      doc.setFont('helvetica', 'italic');
+      doc.setFontSize(4.6);
+      doc.text('Sample stamp', cx, stampY + stampH - 2.4, { align: 'center' });
+      doc.setTextColor(ink[0], ink[1], ink[2]);
+    };
+
+    let stampDrawn = false;
+    if (estimate.stampImage && estimate.stampImage.startsWith('data:image/')) {
+      const format = estimate.stampImage.startsWith('data:image/jpeg') ? 'JPEG' : 'PNG';
+      try {
+        const props = doc.getImageProperties(estimate.stampImage);
+        const maxW = 48;
+        const maxH = 27;
+        const ratio = Math.min(maxW / props.width, maxH / props.height);
+        const imageW = props.width * ratio;
+        const imageH = props.height * ratio;
+        doc.addImage(
+          estimate.stampImage,
+          format,
+          stampX + (stampW - imageW) / 2,
+          stampY + 6,
+          imageW,
+          imageH
+        );
+        stampDrawn = true;
+      } catch {
+        stampDrawn = false;
+      }
+    }
+    if (!stampDrawn) drawVectorStamp();
+
+    // Footer
+    doc.setTextColor(120, 120, 120);
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(6.8);
+    doc.text(
+      `${settings.garageName} · ${settings.phone} · ${settings.email} · ${settings.address}`,
+      pageW / 2,
+      289,
+      { align: 'center' }
+    );
+
+    return PdfService.finish(doc, `Repair_Estimate_${estimate.estimateNumber}.pdf`, options);
   }
 
   /**
    * Generates Daily Jobs Summary or Financial Summary
    */
-  static generateDailySummaryPdf(jobs: JobRecord[], settings: GarageSettings) {
+  static generateDailySummaryPdf(jobs: JobRecord[], settings: GarageSettings, options?: PdfOutputOptions): GeneratedPdf {
     const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
     const primaryRed = [128, 0, 32];
 
@@ -683,6 +1306,10 @@ export class PdfService {
       y += 6.5;
     });
 
-    doc.save(`Feyamet_Daily_Summary_${new Date().toISOString().substring(0, 10)}.pdf`);
+    return PdfService.finish(
+      doc,
+      `Feyamet_Daily_Summary_${new Date().toISOString().substring(0, 10)}.pdf`,
+      options
+    );
   }
 }

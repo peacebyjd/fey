@@ -192,7 +192,7 @@ export const CompactSignaturePad: React.FC<CompactSignaturePadProps> = ({
           )}
         </span>
         <span className="font-mono text-[9px] text-ink-muted/70">
-          fyamet auto garage
+          feyamet auto garage
         </span>
       </div>
     </div>

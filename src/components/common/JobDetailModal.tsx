@@ -2,7 +2,9 @@ import React, { useState } from 'react';
 import { JobRecord, User } from '../../types';
 import { StorageService } from '../../services/storage';
 import { PdfService } from '../../services/pdfService';
+import { DocumentShareButton } from './DocumentShareButton';
 import { canDeleteJob, canManagePricing } from '../../services/permissions';
+import { useLanguage } from '../../i18n/LanguageContext';
 import { StatusBadge, PriorityBadge } from './StatusBadge';
 import {
   X,
@@ -44,6 +46,7 @@ export const JobDetailModal: React.FC<JobDetailModalProps> = ({
   onOpenCostEditor,
   onOpenAssignEditor,
 }) => {
+  const { t } = useLanguage();
   const settings = StorageService.getSettings();
   const [activeTab, setActiveTab] = useState<'overview' | 'job_card' | 'finance' | 'assignment_sms' | 'audit' | 'photos'>('overview');
   const [smsFeedback, setSmsFeedback] = useState<string | null>(null);
@@ -59,14 +62,14 @@ export const JobDetailModal: React.FC<JobDetailModalProps> = ({
   const showHistory = currentUser.role !== 'reception' && currentUser.role !== 'storekeeper';
 
   const tabs = [
-    { id: 'overview', label: 'Overview' },
-    { id: 'job_card', label: 'Job Card' },
-    ...(showFinance ? [{ id: 'finance', label: 'Finance' }] : []),
+    { id: 'overview', label: t('jobDetail.overview') },
+    { id: 'job_card', label: t('jobDetail.jobCard') },
+    ...(showFinance ? [{ id: 'finance', label: t('jobDetail.finance') }] : []),
     ...(showTasks
-      ? [{ id: 'assignment_sms', label: `Tasks & SMS (${job.smsDispatches?.length || 0})` }]
+      ? [{ id: 'assignment_sms', label: `${t('jobDetail.tasks')} (${job.smsDispatches?.length || 0})` }]
       : []),
-    { id: 'photos', label: `Photos (${job.photos?.length || 0})` },
-    ...(showHistory ? [{ id: 'audit', label: `History (${job.auditTrail?.length || 0})` }] : []),
+    { id: 'photos', label: `${t('jobDetail.photos')} (${job.photos?.length || 0})` },
+    ...(showHistory ? [{ id: 'audit', label: `${t('jobDetail.history')} (${job.auditTrail?.length || 0})` }] : []),
   ];
   const safeTab = tabs.some((t) => t.id === activeTab) ? activeTab : 'overview';
 
@@ -96,31 +99,43 @@ export const JobDetailModal: React.FC<JobDetailModalProps> = ({
               </h2>
             </div>
             <p className="text-xs text-ink-muted mt-0.5 truncate">
-              Customer: {job.customerName} ({job.customerPhone}) · Received: {job.receivedAt}
+              {t('jobDetail.customer')}: {job.customerName} ({job.customerPhone}) · {t('jobDetail.received')}: {job.receivedAt}
             </p>
           </div>
 
           <div className="flex items-center gap-2 shrink-0">
             {isPricingRole && (
-              <button
-                type="button"
-                onClick={() => PdfService.generateQuotationPdf(job, settings)}
-                className="flex items-center gap-1 px-3 py-1.5 text-xs font-semibold text-ink bg-white border border-line hover:bg-sand/40 rounded-lg cursor-pointer"
-                title="Customer Quote PDF"
-              >
-                <Download className="w-3.5 h-3.5 text-[#800020]" />
-                <span className="hidden sm:inline">Quote PDF</span>
-              </button>
+              <>
+                <button
+                  type="button"
+                  onClick={() => PdfService.generateQuotationPdf(job, settings)}
+                  className="flex items-center gap-1 px-3 py-1.5 text-xs font-semibold text-ink bg-white border border-line hover:bg-sand/40 rounded-lg cursor-pointer"
+                  title={t('jobDetail.quotePdf')}
+                >
+                  <Download className="w-3.5 h-3.5 text-[#800020]" />
+                  <span className="hidden sm:inline">{t('jobDetail.quotePdf')}</span>
+                </button>
+                <DocumentShareButton
+                  title={`${t('jobDetail.quotePdf')} — ${job.jobNumber}`}
+                  text={`${t('jobDetail.quotePdf')} · ${job.jobNumber} · ${job.plateNumber} · ${job.vehicleMake} ${job.vehicleModel}\n${settings.garageName} · ${settings.phone}`}
+                  getPdf={() => PdfService.generateQuotationPdf(job, settings, { download: false })}
+                />
+              </>
             )}
             <button
               type="button"
               onClick={() => PdfService.generateRepairJobCardPdf(job, settings)}
               className="flex items-center gap-1 px-3 py-1.5 text-xs font-semibold text-ink bg-white border border-line hover:bg-sand/40 rounded-lg cursor-pointer"
-              title="Job Card PDF"
+              title={t('jobDetail.jobCardPdf')}
             >
               <Printer className="w-3.5 h-3.5" />
-              <span className="hidden sm:inline">Job Card</span>
+              <span className="hidden sm:inline">{t('jobDetail.jobCardPdf')}</span>
             </button>
+            <DocumentShareButton
+              title={`${t('jobDetail.jobCardPdf')} — ${job.jobNumber}`}
+              text={`${t('jobDetail.jobCardPdf')} · ${job.jobNumber} · ${job.plateNumber} · ${job.vehicleMake} ${job.vehicleModel}\n${settings.garageName} · ${settings.phone}`}
+              getPdf={() => PdfService.generateRepairJobCardPdf(job, settings, { download: false })}
+            />
             <button
               type="button"
               onClick={onClose}
@@ -169,14 +184,14 @@ export const JobDetailModal: React.FC<JobDetailModalProps> = ({
                   <PriorityBadge priority={job.priority} />
                   {job.isDraft && (
                     <span className="text-[11px] font-semibold text-amber-700 bg-amber-50 px-2 py-0.5 rounded border border-amber-200">
-                      Draft Intake
+                      {t('jobDetail.draftIntake')}
                     </span>
                   )}
                 </div>
                 <div className="text-right">
-                  <span className="text-[11px] text-ink-muted">Assigned Team:</span>
+                  <span className="text-[11px] text-ink-muted">{t('jobDetail.assignedTeam')}</span>
                   <span className="ml-1.5 font-bold text-ink">
-                    {job.assignedTeamName || 'Unassigned'}
+                    {job.assignedTeamName || t('jobDetail.unassigned')}
                   </span>
                 </div>
               </div>
@@ -184,43 +199,43 @@ export const JobDetailModal: React.FC<JobDetailModalProps> = ({
               {/* Vehicle Specifications */}
               <div className="space-y-2">
                 <h3 className="font-bold text-ink text-xs uppercase tracking-wider">
-                  Vehicle & Customer Record
+                  {t('jobDetail.vehicleRecord')}
                 </h3>
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 p-3.5 bg-white border border-line rounded-xl">
                   <div>
-                    <span className="text-[10px] text-ink-muted/70">Make & Model</span>
+                    <span className="text-[10px] text-ink-muted/70">{t('jobDetail.makeModel')}</span>
                     <p className="font-semibold text-ink mt-0.5">{job.vehicleMake} {job.vehicleModel}</p>
                   </div>
                   <div>
-                    <span className="text-[10px] text-ink-muted/70">Plate Number</span>
+                    <span className="text-[10px] text-ink-muted/70">{t('jobDetail.plate')}</span>
                     <p className="font-mono font-bold text-ink mt-0.5">{job.plateNumber}</p>
                   </div>
                   <div>
-                    <span className="text-[10px] text-ink-muted/70">VIN Number</span>
-                    <p className="font-mono text-ink mt-0.5">{job.vin || 'N/A'}</p>
+                    <span className="text-[10px] text-ink-muted/70">{t('jobDetail.vin')}</span>
+                    <p className="font-mono text-ink mt-0.5">{job.vin || t('common.na')}</p>
                   </div>
                   <div>
-                    <span className="text-[10px] text-ink-muted/70">Mileage</span>
+                    <span className="text-[10px] text-ink-muted/70">{t('jobDetail.mileage')}</span>
                     <p className="font-mono tabular-nums text-ink mt-0.5">
-                      {job.mileage ? `${job.mileage.toLocaleString()} km` : 'N/A'}
+                      {job.mileage ? `${job.mileage.toLocaleString()} km` : t('common.na')}
                     </p>
                   </div>
                   <div>
-                    <span className="text-[10px] text-ink-muted/70">Vehicle Color</span>
-                    <p className="text-ink mt-0.5">{job.color || 'Standard'}</p>
+                    <span className="text-[10px] text-ink-muted/70">{t('jobDetail.color')}</span>
+                    <p className="text-ink mt-0.5">{job.color || t('jobDetail.standard')}</p>
                   </div>
                   <div>
-                    <span className="text-[10px] text-ink-muted/70">Expected Delivery</span>
-                    <p className="text-ink mt-0.5">{job.expectedDeliveryDate || 'Flexible'}</p>
+                    <span className="text-[10px] text-ink-muted/70">{t('jobDetail.delivery')}</span>
+                    <p className="text-ink mt-0.5">{job.expectedDeliveryDate || t('jobDetail.flexible')}</p>
                   </div>
                   <div>
-                    <span className="text-[10px] text-ink-muted/70">Insurance Status</span>
+                    <span className="text-[10px] text-ink-muted/70">{t('jobDetail.insurance')}</span>
                     <p className="text-ink mt-0.5">
-                      {job.hasInsurance ? `${job.insuranceCompany || 'Insured'} (${job.insuranceApprovalStatus})` : 'Direct Customer'}
+                      {job.hasInsurance ? `${job.insuranceCompany || t('jobDetail.insured')} (${job.insuranceApprovalStatus})` : t('jobDetail.directCustomer')}
                     </p>
                   </div>
                   <div>
-                    <span className="text-[10px] text-ink-muted/70">Intake Created By</span>
+                    <span className="text-[10px] text-ink-muted/70">{t('jobDetail.createdBy')}</span>
                     <p className="text-ink mt-0.5">{job.createdBy}</p>
                   </div>
                 </div>
@@ -229,13 +244,13 @@ export const JobDetailModal: React.FC<JobDetailModalProps> = ({
               {/* Complaint, remark and repair requirements */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="p-4 bg-white border border-line rounded-xl space-y-1">
-                  <h4 className="font-bold text-ink">Reported Problem:</h4>
-                  <p className="text-ink-muted leading-relaxed">{job.customerProblem || 'Not recorded'}</p>
+                  <h4 className="font-bold text-ink">{t('jobDetail.reportedProblem')}</h4>
+                  <p className="text-ink-muted leading-relaxed">{job.customerProblem || t('jobDetail.notRecorded')}</p>
                 </div>
                 {(job.remarks || job.initialInspectionNotes) &&
                   (job.remarks || job.initialInspectionNotes) !== job.customerProblem && (
                     <div className="p-4 bg-white border border-line rounded-xl space-y-1">
-                      <h4 className="font-bold text-ink">Intake Remark:</h4>
+                      <h4 className="font-bold text-ink">{t('jobDetail.intakeRemark')}</h4>
                       <p className="text-ink-muted leading-relaxed">
                         {job.remarks || job.initialInspectionNotes}
                       </p>
@@ -249,7 +264,7 @@ export const JobDetailModal: React.FC<JobDetailModalProps> = ({
                 return (
                   <div className="space-y-2">
                     <h3 className="font-bold text-ink text-xs uppercase tracking-wider">
-                      Repair / Replace Requirements
+                      {t('jobDetail.repairRequirements')}
                     </h3>
                     <div className="border border-line rounded-xl divide-y divide-line overflow-hidden bg-white">
                       {items.map((item) => (
@@ -262,7 +277,7 @@ export const JobDetailModal: React.FC<JobDetailModalProps> = ({
                                   : 'bg-amber-100 text-amber-800 border border-amber-300'
                               }`}
                             >
-                              {item.action || 'Repair'}
+                              {item.action || t('jobDetail.repair')}
                             </span>
                             <span className="text-ink font-semibold truncate">{item.name}</span>
                           </span>
@@ -270,7 +285,7 @@ export const JobDetailModal: React.FC<JobDetailModalProps> = ({
                             <span className="font-mono font-bold text-ink shrink-0">
                               {item.amount > 0
                                 ? `${item.amount.toLocaleString()} ${settings.currency}`
-                                : 'Not priced'}
+                                : t('jobDetail.notPriced')}
                             </span>
                           ) : null}
                         </div>
@@ -282,8 +297,8 @@ export const JobDetailModal: React.FC<JobDetailModalProps> = ({
 
               {/* Condition On Arrival */}
               <div className="p-3 bg-sand/40 border border-line rounded-xl">
-                <span className="font-semibold text-ink">Vehicle Condition on Arrival:</span>
-                <span className="ml-2 text-ink-muted">{job.vehicleConditionOnArrival || 'Not recorded'}</span>
+                <span className="font-semibold text-ink">{t('jobDetail.condition')}</span>
+                <span className="ml-2 text-ink-muted">{job.vehicleConditionOnArrival || t('jobDetail.notRecorded')}</span>
               </div>
             </div>
           )}
@@ -292,23 +307,23 @@ export const JobDetailModal: React.FC<JobDetailModalProps> = ({
             <div className="space-y-4">
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                 <div className="p-3 bg-sand/40 rounded-xl border border-line">
-                  <span className="text-[10px] text-ink-muted">Quotation Status</span>
+                  <span className="text-[10px] text-ink-muted">{t('jobDetail.quotationStatus')}</span>
                   <p className="text-sm font-bold text-ink mt-0.5">{job.quotationStatus}</p>
                 </div>
                 <div className="p-3 bg-sand/40 rounded-xl border border-line">
-                  <span className="text-[10px] text-ink-muted">Estimated Cost</span>
+                  <span className="text-[10px] text-ink-muted">{t('jobDetail.estimatedCost')}</span>
                   <p className="text-sm font-mono font-bold text-ink mt-0.5">
                     {job.totalEstimatedCost.toLocaleString()} {settings.currency}
                   </p>
                 </div>
                 <div className="p-3 bg-sand/40 rounded-xl border border-line">
-                  <span className="text-[10px] text-ink-muted">Total Paid</span>
+                  <span className="text-[10px] text-ink-muted">{t('jobDetail.totalPaid')}</span>
                   <p className="text-sm font-mono font-bold text-emerald-700 mt-0.5">
                     {totalPaid.toLocaleString()} {settings.currency}
                   </p>
                 </div>
                 <div className="p-3 bg-sand/40 rounded-xl border border-line">
-                  <span className="text-[10px] text-ink-muted">Remaining Balance</span>
+                  <span className="text-[10px] text-ink-muted">{t('jobDetail.remainingBalance')}</span>
                   <p className={`text-sm font-mono font-bold mt-0.5 ${balance > 0 ? 'text-coral' : 'text-emerald-700'}`}>
                     {balance.toLocaleString()} {settings.currency}
                   </p>
@@ -318,7 +333,7 @@ export const JobDetailModal: React.FC<JobDetailModalProps> = ({
               {/* Priced repair / replace items set by Finance */}
               <div>
                 <h4 className="font-bold text-ink mb-2">
-                  Repair / Replace Prices ({(job.priceItems || []).filter((i) => i.name.trim()).length})
+                  {t('jobDetail.repairPrices')} ({(job.priceItems || []).filter((i) => i.name.trim()).length})
                 </h4>
                 {(job.priceItems || []).filter((i) => i.name.trim()).length > 0 ? (
                   <div className="border border-line rounded-xl divide-y divide-line overflow-hidden">
@@ -337,38 +352,38 @@ export const JobDetailModal: React.FC<JobDetailModalProps> = ({
                                   : 'bg-amber-100 text-amber-800 border border-amber-300'
                               }`}
                             >
-                              {item.action || 'Repair'}
+                              {item.action || t('jobDetail.repair')}
                             </span>
                             <span className="font-semibold text-ink truncate">{item.name}</span>
                           </span>
                           <span className="font-mono font-bold text-ink shrink-0">
                             {item.amount > 0
                               ? `${item.amount.toLocaleString()} ${settings.currency}`
-                              : 'Not priced'}
+                              : t('jobDetail.notPriced')}
                           </span>
                         </div>
                       ))}
                   </div>
                 ) : (
-                  <p className="text-ink-muted/70 italic">No priced items recorded yet.</p>
+                  <p className="text-ink-muted/70 italic">{t('jobDetail.noPricedItems')}</p>
                 )}
                 <p className="text-[10px] text-ink-muted mt-1">
-                  Prices are set by Finance and are read-only here.
+                  {t('jobDetail.pricesReadOnly')}
                 </p>
               </div>
 
               {/* Spare Parts Breakdown */}
               <div>
-                <h4 className="font-bold text-ink mb-2">Itemized Spare Parts ({job.spareParts?.length || 0})</h4>
+                <h4 className="font-bold text-ink mb-2">{t('jobDetail.itemizedParts')} ({job.spareParts?.length || 0})</h4>
                 <div className="border border-line rounded-xl overflow-hidden">
                   <table className="w-full text-left">
                     <thead className="bg-sand/40 border-b text-[11px] font-semibold text-ink-muted">
                       <tr>
-                        <th className="py-2 px-3">Part</th>
-                        <th className="py-2 px-3 text-right">Qty</th>
-                        <th className="py-2 px-3 text-right">Unit Price</th>
-                        <th className="py-2 px-3 text-right">Total</th>
-                        <th className="py-2 px-3">Status</th>
+                        <th className="py-2 px-3">{t('jobDetail.part')}</th>
+                        <th className="py-2 px-3 text-right">{t('jobDetail.qty')}</th>
+                        <th className="py-2 px-3 text-right">{t('jobDetail.unitPrice')}</th>
+                        <th className="py-2 px-3 text-right">{t('jobDetail.total')}</th>
+                        <th className="py-2 px-3">{t('common.status')}</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-line">
@@ -388,14 +403,14 @@ export const JobDetailModal: React.FC<JobDetailModalProps> = ({
 
               {/* Payments log */}
               <div>
-                <h4 className="font-bold text-ink mb-2">Recorded Payments ({job.payments?.length || 0})</h4>
+                <h4 className="font-bold text-ink mb-2">{t('jobDetail.recordedPayments')} ({job.payments?.length || 0})</h4>
                 {(job.payments || []).length > 0 ? (
                   <div className="space-y-1.5">
                     {job.payments.map((p) => (
                       <div key={p.id} className="p-2.5 bg-sand/40 border border-line rounded-lg flex items-center justify-between">
                         <div>
                           <p className="font-semibold text-ink">{p.paymentMethod} · {p.date}</p>
-                          <p className="text-[10px] text-ink-muted">Ref: {p.reference || 'N/A'} · Recorded by {p.recordedBy}</p>
+                          <p className="text-[10px] text-ink-muted">{t('jobDetail.ref')}: {p.reference || t('common.na')} · {t('jobDetail.recordedBy')} {p.recordedBy}</p>
                         </div>
                         <span className="font-mono font-bold text-emerald-700 tabular-nums">
                           +{p.amount.toLocaleString()} {settings.currency}
@@ -404,7 +419,7 @@ export const JobDetailModal: React.FC<JobDetailModalProps> = ({
                     ))}
                   </div>
                 ) : (
-                  <p className="text-ink-muted/70 italic">No payments logged yet.</p>
+                  <p className="text-ink-muted/70 italic">{t('jobDetail.noPayments')}</p>
                 )}
               </div>
             </div>
@@ -415,9 +430,9 @@ export const JobDetailModal: React.FC<JobDetailModalProps> = ({
               {/* Mechanic Assignment Card */}
               <div className="p-4 bg-sand/40 border border-line rounded-xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
                 <div>
-                  <span className="text-[10px] text-ink-muted/70 uppercase font-semibold">Assigned Mechanic Team</span>
+                  <span className="text-[10px] text-ink-muted/70 uppercase font-semibold">{t('jobDetail.assignedMechanicTeam')}</span>
                   <p className="text-sm font-bold text-ink mt-0.5">
-                    {job.assignedTeamName || 'Not Assigned Yet'}
+                    {job.assignedTeamName || t('jobDetail.notAssignedYet')}
                   </p>
                   {job.assignedMechanicPhone && (
                     <p className="text-xs text-ink-muted flex items-center gap-1.5 mt-0.5 font-mono">
@@ -446,7 +461,7 @@ export const JobDetailModal: React.FC<JobDetailModalProps> = ({
                       className="px-3.5 py-2 bg-[#800020] hover:bg-[#600018] text-white font-semibold text-xs rounded-lg transition flex items-center gap-1.5 cursor-pointer shadow-xs"
                     >
                       <Send className="w-3.5 h-3.5" />
-                      <span>Dispatch Task SMS</span>
+                      <span>{t('jobDetail.dispatchSms')}</span>
                     </button>
                   ) : (
                     onOpenAssignEditor && (
@@ -455,7 +470,7 @@ export const JobDetailModal: React.FC<JobDetailModalProps> = ({
                         onClick={() => onOpenAssignEditor(job)}
                         className="px-3.5 py-2 bg-brand hover:bg-ink text-white font-semibold text-xs rounded-lg cursor-pointer"
                       >
-                        Assign Mechanic
+                        {t('jobDetail.assignMechanic')}
                       </button>
                     )
                   )}
@@ -473,9 +488,9 @@ export const JobDetailModal: React.FC<JobDetailModalProps> = ({
               <div className="space-y-2 pt-1">
                 <div className="flex items-center justify-between">
                   <h4 className="font-bold text-ink text-xs uppercase tracking-wider">
-                    Direct SMS Log to Mechanic Phone ({job.smsDispatches?.length || 0})
+                    {t('jobDetail.smsLog')} ({job.smsDispatches?.length || 0})
                   </h4>
-                  <span className="text-[11px] text-ink-muted/70">Automated mobile dispatch</span>
+                  <span className="text-[11px] text-ink-muted/70">{t('jobDetail.automatedDispatch')}</span>
                 </div>
 
                 {(job.smsDispatches || []).length > 0 ? (
@@ -503,7 +518,7 @@ export const JobDetailModal: React.FC<JobDetailModalProps> = ({
                 ) : (
                   <div className="p-6 text-center bg-sand/40 rounded-xl border border-line text-ink-muted/70">
                     <Smartphone className="w-6 h-6 mx-auto mb-1 text-line" />
-                    <p className="text-xs">No SMS dispatched to mechanics yet for this vehicle.</p>
+                    <p className="text-xs">{t('jobDetail.noSms')}</p>
                   </div>
                 )}
               </div>
@@ -512,7 +527,7 @@ export const JobDetailModal: React.FC<JobDetailModalProps> = ({
 
           {safeTab === 'photos' && (
             <div className="space-y-3">
-              <h4 className="font-bold text-ink">Vehicle Photos on Record</h4>
+              <h4 className="font-bold text-ink">{t('jobDetail.vehiclePhotos')}</h4>
               {(job.photos || []).length > 0 ? (
                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
                   {job.photos.map((p) => (
@@ -528,7 +543,7 @@ export const JobDetailModal: React.FC<JobDetailModalProps> = ({
                   ))}
                 </div>
               ) : (
-                <p className="text-ink-muted/70 italic">No photos attached to this vehicle record.</p>
+                <p className="text-ink-muted/70 italic">{t('jobDetail.noPhotos')}</p>
               )}
             </div>
           )}
@@ -536,8 +551,8 @@ export const JobDetailModal: React.FC<JobDetailModalProps> = ({
           {safeTab === 'audit' && (
             <div className="space-y-3">
               <div className="flex items-center justify-between">
-                <h4 className="font-bold text-ink">Comprehensive Audit Trail</h4>
-                <span className="text-[11px] text-ink-muted/70">Timestamped record of all operations</span>
+                <h4 className="font-bold text-ink">{t('jobDetail.auditTrail')}</h4>
+                <span className="text-[11px] text-ink-muted/70">{t('jobDetail.auditDesc')}</span>
               </div>
               <div className="space-y-2">
                 {(job.auditTrail || []).map((entry) => (
@@ -570,7 +585,7 @@ export const JobDetailModal: React.FC<JobDetailModalProps> = ({
               className="flex items-center gap-1.5 text-xs text-coral hover:text-brand hover:bg-coral/10 px-3 py-2 rounded-lg transition cursor-pointer"
             >
               <Trash2 className="w-3.5 h-3.5" />
-              <span>Delete Record</span>
+              <span>{t('jobDetail.delete')}</span>
             </button>
           ) : (
             <span />
@@ -586,7 +601,7 @@ export const JobDetailModal: React.FC<JobDetailModalProps> = ({
                 }}
                 className="px-3 py-2 text-xs font-semibold text-ink bg-white border border-line hover:bg-sand/50 rounded-xl"
               >
-                Open Cost Controller
+                {t('jobDetail.openCost')}
               </button>
             )}
             <button
@@ -594,7 +609,7 @@ export const JobDetailModal: React.FC<JobDetailModalProps> = ({
               onClick={onClose}
               className="px-5 py-2 text-xs font-semibold text-white bg-[#800020] hover:bg-[#600018] rounded-xl shadow-xs"
             >
-              Close
+              {t('jobDetail.close')}
             </button>
           </div>
         </div>

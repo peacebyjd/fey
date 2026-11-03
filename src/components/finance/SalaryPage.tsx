@@ -9,6 +9,7 @@ import {
 } from '../../types';
 import { StorageService } from '../../services/storage';
 import { canManagePricing } from '../../services/permissions';
+import { useLanguage } from '../../i18n/LanguageContext';
 import {
   formatDateShort,
   formatWeekRange,
@@ -38,6 +39,7 @@ const categoryBadge = (category: WorkerCategory) => {
 };
 
 export const SalaryPage: React.FC<SalaryPageProps> = ({ currentUser }) => {
+  const { t } = useLanguage();
   const settings = StorageService.getSettings();
   const canManage = canManagePricing(currentUser.role);
 
@@ -123,7 +125,7 @@ export const SalaryPage: React.FC<SalaryPageProps> = ({ currentUser }) => {
   if (!week) {
     return (
       <div className="p-8 text-center text-xs text-ink-muted border border-dashed border-line rounded-2xl">
-        Preparing this week&apos;s salary sheet...
+        {t('salary.preparing')}
       </div>
     );
   }
@@ -138,9 +140,9 @@ export const SalaryPage: React.FC<SalaryPageProps> = ({ currentUser }) => {
                 <Wallet className="w-4 h-4" />
               </span>
               <div>
-                <h2 className="text-lg font-extrabold text-ink">Weekly Salary</h2>
+                <h2 className="text-lg font-extrabold text-ink">{t('salary.title')}</h2>
                 <p className="text-[11px] text-ink-muted">
-                  Salaries are paid every Saturday in {settings.currency}.
+                  {t('salary.description', { currency: settings.currency })}
                 </p>
               </div>
             </div>
@@ -151,7 +153,7 @@ export const SalaryPage: React.FC<SalaryPageProps> = ({ currentUser }) => {
               {formatWeekRange(week.weekStart)}
             </span>
             <span className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-coral/10 border border-coral/30 text-[11px] font-semibold text-brand">
-              Payday: Sat, {formatDateShort(paydayForWeekStart(week.weekStart))}
+              {t('salary.payday', { date: formatDateShort(paydayForWeekStart(week.weekStart)) })}
             </span>
             {canManage && (
               <button

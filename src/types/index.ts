@@ -1,5 +1,7 @@
 export type UserRole = 'admin' | 'reception' | 'finance' | 'manager' | 'storekeeper';
 
+export type Language = 'am' | 'en';
+
 export interface User {
   id: string;
   email: string;
@@ -8,6 +10,7 @@ export interface User {
   phone?: string;
   isActive: boolean;
   avatarUrl?: string;
+  preferredLanguage?: Language;
 }
 
 export interface MechanicStaff {

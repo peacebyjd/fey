@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { GarageSettings, PriceItem, User, UserRole } from '../../types';
 import { StorageService } from '../../services/storage';
+import { useLanguage } from '../../i18n/LanguageContext';
 import {
   Users,
   Shield,
@@ -32,6 +33,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   onRefreshUsers,
   onRefreshJobs,
 }) => {
+  const { t } = useLanguage();
   const [settings, setSettings] = useState<GarageSettings>(StorageService.getSettings());
   const [isUserModalOpen, setIsUserModalOpen] = useState(false);
   const [editingUser, setEditingUser] = useState<User | null>(null);
@@ -252,16 +254,16 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
         <div>
           <div className="flex items-center gap-2">
             <span className="text-xs font-bold uppercase tracking-wider text-[#800020]">
-              Administration
+              {t('admin.administration')}
             </span>
             <span className="text-line">·</span>
-            <span className="text-xs font-medium text-ink-muted">Security & Access Control</span>
+            <span className="text-xs font-medium text-ink-muted">{t('admin.securityAccess')}</span>
           </div>
           <h1 className="text-xl sm:text-2xl font-bold text-ink mt-0.5">
-            Staff Accounts & System Configuration
+            {t('admin.title')}
           </h1>
           <p className="text-xs sm:text-sm text-ink-muted mt-1 max-w-2xl">
-            Only authorized administrators can provision staff credentials, grant role-based dashboard permissions, manage garage tax settings, and create database recovery backups.
+            {t('admin.description')}
           </p>
         </div>
 
@@ -271,7 +273,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
           className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-[#800020] hover:bg-[#600018] text-white font-semibold text-xs shadow-xs transition duration-150 cursor-pointer shrink-0"
         >
           <Plus className="w-4 h-4" />
-          <span>Add Staff Account</span>
+          <span>{t('admin.addStaff')}</span>
         </button>
       </div>
 
@@ -287,16 +289,16 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
         <div className="px-4 py-3 border-b border-line flex flex-wrap items-center justify-between gap-2">
           <div>
             <h2 className="text-xs font-bold text-ink uppercase tracking-wider">
-              Authorized Staff Directory ({allUsers.length})
+              {t('admin.staffDirectory', { count: allUsers.length })}
             </h2>
-            <p className="text-[11px] text-ink-muted/70">Manage user access and assigned dashboard roles</p>
+            <p className="text-[11px] text-ink-muted/70">{t('admin.manageAccess')}</p>
           </div>
           <button
             type="button"
             onClick={openCreateUser}
             className="text-xs text-[#800020] hover:underline font-semibold cursor-pointer"
           >
-            + New Account
+            {t('admin.newAccount')}
           </button>
         </div>
 
@@ -304,12 +306,12 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
           <table className="w-full min-w-[560px] text-left text-xs">
             <thead className="bg-sand/40 border-b text-[11px] font-semibold text-ink-muted uppercase">
               <tr>
-                <th className="py-2.5 px-3">Staff Name</th>
-                <th className="py-2.5 px-3">Email Address</th>
-                <th className="py-2.5 px-3">Role</th>
-                <th className="py-2.5 px-3 hidden lg:table-cell">Phone</th>
-                <th className="py-2.5 px-3">Status</th>
-                <th className="py-2.5 px-3 text-right">Actions</th>
+                <th className="py-2.5 px-3">{t('admin.staffName')}</th>
+                <th className="py-2.5 px-3">{t('admin.email')}</th>
+                <th className="py-2.5 px-3">{t('admin.role')}</th>
+                <th className="py-2.5 px-3 hidden lg:table-cell">{t('admin.phone')}</th>
+                <th className="py-2.5 px-3">{t('admin.status')}</th>
+                <th className="py-2.5 px-3 text-right">{t('admin.actions')}</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-line">
@@ -336,7 +338,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                           : 'bg-rose-100 text-rose-900'
                       }`}
                     >
-                      {user.role === 'reception' ? 'Recorder' : user.role}
+                      {user.role === 'reception' ? t('roles.recorder') : t(`roles.${user.role}`)}
                     </span>
                   </td>
                   <td className="py-3 px-3 text-ink-muted tabular-nums whitespace-nowrap hidden lg:table-cell">
@@ -350,7 +352,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                           : 'bg-sand/50 text-ink-muted border border-line'
                       }`}
                     >
-                      {user.isActive ? 'Active' : 'Inactive'}
+                      {user.isActive ? t('admin.active') : t('admin.inactive')}
                     </span>
                   </td>
                   <td className="py-3 px-3 text-right">
@@ -359,7 +361,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                         type="button"
                         onClick={() => openEditUser(user)}
                         className="text-ink-muted hover:text-ink p-1"
-                        title="Edit user"
+                        title={t('admin.editUser')}
                       >
                         <Edit2 className="w-3.5 h-3.5" />
                       </button>
@@ -372,7 +374,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                             : 'text-emerald-700 hover:bg-emerald-50'
                         }`}
                       >
-                        {user.isActive ? 'Deactivate' : 'Activate'}
+                        {user.isActive ? t('admin.deactivate') : t('admin.activate')}
                       </button>
                     </div>
                   </td>
@@ -390,10 +392,10 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
             <Tag className="w-4 h-4 text-brand" />
             <div>
               <h2 className="text-xs font-bold text-ink uppercase tracking-wider">
-                Fixed Price List ({priceItems.length})
+                {t('admin.fixedPriceList', { count: priceItems.length })}
               </h2>
               <p className="text-[11px] text-ink-muted/70">
-                Items Finance can tap to add when pricing a repair
+                {t('admin.fixedPriceDesc')}
               </p>
             </div>
           </div>
@@ -404,7 +406,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
               className="hidden sm:flex items-center gap-1.5 px-3 py-2 text-xs font-semibold text-ink-muted hover:text-ink hover:bg-sand/50 rounded-lg transition cursor-pointer"
             >
               <RotateCcw className="w-3.5 h-3.5" />
-              <span>Reset Defaults</span>
+              <span>{t('admin.resetDefaults')}</span>
             </button>
             <button
               type="button"
@@ -412,7 +414,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
               className="flex items-center gap-1.5 px-3 py-2 bg-brand hover:bg-brand-hover text-white font-semibold text-xs rounded-lg transition cursor-pointer"
             >
               <Plus className="w-3.5 h-3.5" />
-              <span>Add Item</span>
+              <span>{t('admin.addItem')}</span>
             </button>
           </div>
         </div>
@@ -434,7 +436,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                   type="button"
                   onClick={() => openEditPriceItem(item)}
                   className="text-ink-muted hover:text-ink p-1 cursor-pointer"
-                  title="Edit item"
+                  title={t('admin.editItem')}
                 >
                   <Edit2 className="w-3.5 h-3.5" />
                 </button>
@@ -442,7 +444,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                   type="button"
                   onClick={() => handleDeletePriceItem(item)}
                   className="text-ink-muted hover:text-coral p-1 cursor-pointer"
-                  title="Delete item"
+                  title={t('admin.deleteItem')}
                 >
                   <Trash2 className="w-3.5 h-3.5" />
                 </button>
@@ -452,7 +454,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
           {priceItems.length === 0 && (
             <p className="col-span-full text-xs text-ink-muted italic py-3 text-center">
-              No price items yet. Tap "Add Item" to create one.
+              {t('admin.noPriceItems')}
             </p>
           )}
         </div>
@@ -464,12 +466,12 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
         <div className="bg-white rounded-xl border border-line p-5 shadow-2xs space-y-4">
           <div className="flex items-center gap-2 border-b pb-2">
             <Building className="w-4 h-4 text-[#800020]" />
-            <h3 className="text-sm font-bold text-ink">Garage Profile & Tax Configuration</h3>
+            <h3 className="text-sm font-bold text-ink">{t('admin.garageProfile')}</h3>
           </div>
 
           <form onSubmit={handleSaveSettings} className="space-y-3 text-xs">
             <div>
-              <label className="block font-medium text-ink mb-0.5">Workshop Trade Name</label>
+              <label className="block font-medium text-ink mb-0.5">{t('admin.tradeName')}</label>
               <input
                 type="text"
                 value={garageName}
@@ -479,7 +481,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
             </div>
 
             <div>
-              <label className="block font-medium text-ink mb-0.5">Official Address</label>
+              <label className="block font-medium text-ink mb-0.5">{t('admin.address')}</label>
               <input
                 type="text"
                 value={address}
@@ -490,7 +492,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className="block font-medium text-ink mb-0.5">Contact Phone</label>
+                <label className="block font-medium text-ink mb-0.5">{t('admin.contactPhone')}</label>
                 <input
                   type="text"
                   value={phone}
@@ -499,7 +501,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                 />
               </div>
               <div>
-                <label className="block font-medium text-ink mb-0.5">Contact Email</label>
+                <label className="block font-medium text-ink mb-0.5">{t('admin.contactEmail')}</label>
                 <input
                   type="email"
                   value={email}
@@ -511,7 +513,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
             <div className="grid grid-cols-3 gap-3">
               <div>
-                <label className="block font-medium text-ink mb-0.5">Taxpayer ID (TIN)</label>
+                <label className="block font-medium text-ink mb-0.5">{t('admin.tin')}</label>
                 <input
                   type="text"
                   value={taxId}
@@ -520,7 +522,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                 />
               </div>
               <div>
-                <label className="block font-medium text-ink mb-0.5">Billing Currency</label>
+                <label className="block font-medium text-ink mb-0.5">{t('admin.billingCurrency')}</label>
                 <input
                   type="text"
                   value={currency}
@@ -529,7 +531,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                 />
               </div>
               <div>
-                <label className="block font-medium text-ink mb-0.5">Default VAT / Tax (%)</label>
+                <label className="block font-medium text-ink mb-0.5">{t('admin.vat')}</label>
                 <input
                   type="number"
                   value={defaultTaxRate}
@@ -544,7 +546,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                 type="submit"
                 className="px-4 py-2 font-semibold text-white bg-brand hover:bg-ink rounded-lg text-xs cursor-pointer"
               >
-                Save Garage Settings
+                {t('admin.saveGarageSettings')}
               </button>
             </div>
           </form>
@@ -554,17 +556,17 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
         <div className="bg-white rounded-xl border border-line p-5 shadow-2xs space-y-4">
           <div className="flex items-center gap-2 border-b pb-2">
             <Shield className="w-4 h-4 text-[#800020]" />
-            <h3 className="text-sm font-bold text-ink">Database Backup & Disaster Recovery</h3>
+            <h3 className="text-sm font-bold text-ink">{t('admin.backupRecovery')}</h3>
           </div>
           <p className="text-xs text-ink-muted leading-relaxed">
-            Ensure business continuity for Feyamet Auto Garage. You can export complete snapshot dumps of vehicle records, finance quotations, mechanics, and settings, or restore from a previous backup file.
+            {t('admin.backupDescription')}
           </p>
 
           <div className="space-y-3 pt-2">
             <div className="p-3.5 bg-sand/40 border border-line rounded-xl flex items-center justify-between">
               <div>
-                <p className="text-xs font-bold text-ink">Export Full JSON Database Backup</p>
-                <p className="text-[11px] text-ink-muted">Includes all jobs, audit history, users, and teams</p>
+                <p className="text-xs font-bold text-ink">{t('admin.exportBackup')}</p>
+                <p className="text-[11px] text-ink-muted">{t('admin.exportBackupDesc')}</p>
               </div>
               <button
                 type="button"
@@ -572,18 +574,18 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                 className="flex items-center gap-1.5 px-3 py-2 bg-brand hover:bg-ink text-white font-semibold text-xs rounded-lg transition cursor-pointer"
               >
                 <Download className="w-3.5 h-3.5" />
-                <span>Download Backup</span>
+                <span>{t('admin.downloadBackup')}</span>
               </button>
             </div>
 
             <div className="p-3.5 bg-sand/40 border border-line rounded-xl flex items-center justify-between">
               <div>
-                <p className="text-xs font-bold text-ink">Restore from Database Backup</p>
-                <p className="text-[11px] text-ink-muted">Import a previously saved .json backup file</p>
+                <p className="text-xs font-bold text-ink">{t('admin.restoreBackup')}</p>
+                <p className="text-[11px] text-ink-muted">{t('admin.restoreBackupDesc')}</p>
               </div>
               <label className="flex items-center gap-1.5 px-3 py-2 bg-white border border-line hover:bg-sand/50 text-ink font-semibold text-xs rounded-lg transition cursor-pointer">
                 <Upload className="w-3.5 h-3.5" />
-                <span>Upload & Restore</span>
+                <span>{t('admin.uploadRestore')}</span>
                 <input
                   type="file"
                   accept=".json,application/json"
@@ -595,8 +597,8 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
             <div className="p-3.5 bg-coral/10 border border-coral/30 rounded-xl flex items-center justify-between">
               <div>
-                <p className="text-xs font-bold text-brand">Reset Demo Database</p>
-                <p className="text-[11px] text-brand/80">Restore default demo vehicles, teams, and sample quotation</p>
+                <p className="text-xs font-bold text-brand">{t('admin.resetDemo')}</p>
+                <p className="text-[11px] text-brand/80">{t('admin.resetDemoDesc')}</p>
               </div>
               <button
                 type="button"
@@ -604,7 +606,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                 className="flex items-center gap-1.5 px-3 py-2 bg-coral hover:bg-coral-hover text-white font-semibold text-xs rounded-lg transition cursor-pointer"
               >
                 <RotateCcw className="w-3.5 h-3.5" />
-                <span>Reset Demo Data</span>
+                <span>{t('admin.resetDemoData')}</span>
               </button>
             </div>
           </div>
@@ -617,7 +619,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
           <div className="bg-white rounded-2xl max-w-sm w-full p-6 shadow-2xl border border-line space-y-4 text-xs">
             <div className="flex items-center justify-between border-b pb-2">
               <h3 className="text-sm font-bold text-ink">
-                {editingPriceItem ? 'Edit Price Item' : 'Add Price Item'}
+                {editingPriceItem ? t('admin.editPriceItem') : t('admin.addPriceItem')}
               </h3>
               <button
                 onClick={() => setIsPriceModalOpen(false)}
@@ -629,17 +631,17 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
             <div className="space-y-3">
               <div>
-                <label className="block font-medium text-ink mb-0.5">Item Name</label>
+                <label className="block font-medium text-ink mb-0.5">{t('admin.itemName')}</label>
                 <input
                   type="text"
                   value={priceName}
                   onChange={(e) => setPriceName(e.target.value)}
-                  placeholder="e.g. Oil Change"
+                  placeholder={t('admin.itemNamePlaceholder')}
                   className="w-full px-3 py-2 border border-line rounded-lg text-xs"
                 />
               </div>
               <div>
-                <label className="block font-medium text-ink mb-0.5">Price ({settings.currency})</label>
+                <label className="block font-medium text-ink mb-0.5">{t('admin.price')} ({settings.currency})</label>
                 <input
                   type="number"
                   min="0"
@@ -657,7 +659,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                 onClick={() => setIsPriceModalOpen(false)}
                 className="px-3 py-2 text-ink-muted hover:bg-sand/50 rounded-lg"
               >
-                Cancel
+                {t('common.cancel')}
               </button>
               <button
                 type="button"
@@ -665,7 +667,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                 className="flex items-center gap-1.5 px-5 py-2 font-semibold text-white bg-brand hover:bg-brand-hover rounded-lg shadow-xs"
               >
                 <Check className="w-4 h-4" />
-                <span>Save Item</span>
+                <span>{t('admin.saveItem')}</span>
               </button>
             </div>
           </div>
@@ -678,7 +680,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
           <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl border border-line space-y-4 text-xs">
             <div className="flex items-center justify-between border-b pb-2">
               <h3 className="text-sm font-bold text-ink">
-                {editingUser ? 'Edit Staff Account' : 'Create Authorized Staff Account'}
+                {editingUser ? t('admin.editStaff') : t('admin.createStaff')}
               </h3>
               <button
                 onClick={() => setIsUserModalOpen(false)}
@@ -690,7 +692,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
             <div className="space-y-3">
               <div>
-                <label className="block font-medium text-ink mb-0.5">Staff Full Name</label>
+                <label className="block font-medium text-ink mb-0.5">{t('admin.staffFullName')}</label>
                 <input
                   type="text"
                   value={userName}
@@ -701,7 +703,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
               </div>
 
               <div>
-                <label className="block font-medium text-ink mb-0.5">Staff Email Address</label>
+                <label className="block font-medium text-ink mb-0.5">{t('admin.staffEmail')}</label>
                 <input
                   type="email"
                   value={userEmail}
@@ -712,21 +714,21 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
               </div>
 
               <div>
-                <label className="block font-medium text-ink mb-0.5">Assigned System Role</label>
+                <label className="block font-medium text-ink mb-0.5">{t('admin.assignedRole')}</label>
                 <select
                   value={userRole}
                   onChange={(e) => setUserRole(e.target.value as UserRole)}
                   className="w-full px-3 py-2 border border-line rounded-lg text-xs font-semibold"
                 >
-                  <option value="admin">Administrator (Full Access & User Control)</option>
-                  <option value="reception">Recorder (Vehicle Intake & Photos)</option>
-                  <option value="finance">Finance (Quotations & Payment Ledger)</option>
-                  <option value="manager">Manager (Daily Task Dispatch & Approvals)</option>
+                  <option value="admin">{t('admin.roleAdminOption')}</option>
+                  <option value="reception">{t('admin.roleRecorderOption')}</option>
+                  <option value="finance">{t('admin.roleFinanceOption')}</option>
+                  <option value="manager">{t('admin.roleManagerOption')}</option>
                 </select>
               </div>
 
               <div>
-                <label className="block font-medium text-ink mb-0.5">Contact Phone</label>
+                <label className="block font-medium text-ink mb-0.5">{t('admin.contactPhone')}</label>
                 <input
                   type="text"
                   value={userPhone}
@@ -745,7 +747,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                   className="rounded text-[#800020]"
                 />
                 <label htmlFor="userActiveCheck" className="text-xs font-medium text-ink">
-                  Account is active and authorized to sign in
+                  {t('admin.accountActive')}
                 </label>
               </div>
             </div>
@@ -756,14 +758,14 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                 onClick={() => setIsUserModalOpen(false)}
                 className="px-3 py-2 text-ink-muted hover:bg-sand/50 rounded-lg"
               >
-                Cancel
+                {t('common.cancel')}
               </button>
               <button
                 type="button"
                 onClick={handleSaveUser}
                 className="px-5 py-2 font-semibold text-white bg-[#800020] hover:bg-[#600018] rounded-lg shadow-xs"
               >
-                Save Account
+                {t('admin.saveAccount')}
               </button>
             </div>
           </div>

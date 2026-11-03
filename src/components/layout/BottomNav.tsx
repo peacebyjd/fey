@@ -10,6 +10,7 @@ import {
   Users,
   FileSpreadsheet,
 } from 'lucide-react';
+import { useLanguage } from '../../i18n/LanguageContext';
 
 interface BottomNavProps {
   currentUser: User;
@@ -28,16 +29,17 @@ export const BottomNav: React.FC<BottomNavProps> = ({
   setActiveTab,
   onOpenReports,
 }) => {
+  const { t } = useLanguage();
   const isAllowed = (roles: string[]) =>
     roles.includes(currentUser.role) || currentUser.role === 'admin';
 
   const items = [
-    { id: 'manager', label: 'Task', icon: <Kanban className="w-5 h-5" />, allowed: isAllowed(['manager']) },
-    { id: 'finance', label: 'Finance', icon: <Receipt className="w-5 h-5" />, allowed: isAllowed(['finance']) },
-    { id: 'store', label: 'Store', icon: <Package className="w-5 h-5" />, allowed: isAllowed(['storekeeper']) },
-    { id: 'datas_history', label: 'Data', icon: <Database className="w-5 h-5" />, allowed: isAllowed(['manager', 'finance']) },
-    { id: 'reception', label: 'Recorder', icon: <Car className="w-5 h-5" />, allowed: isAllowed(['reception']) },
-    { id: 'admin', label: 'Admin', icon: <Users className="w-5 h-5" />, allowed: currentUser.role === 'admin' },
+    { id: 'manager', label: t('bottom.task'), icon: <Kanban className="w-5 h-5" />, allowed: isAllowed(['manager']) },
+    { id: 'finance', label: t('bottom.finance'), icon: <Receipt className="w-5 h-5" />, allowed: isAllowed(['finance']) },
+    { id: 'store', label: t('bottom.store'), icon: <Package className="w-5 h-5" />, allowed: isAllowed(['storekeeper']) },
+    { id: 'datas_history', label: t('bottom.data'), icon: <Database className="w-5 h-5" />, allowed: isAllowed(['manager', 'finance']) },
+    { id: 'reception', label: t('bottom.recorder'), icon: <Car className="w-5 h-5" />, allowed: isAllowed(['reception']) },
+    { id: 'admin', label: t('bottom.admin'), icon: <Users className="w-5 h-5" />, allowed: currentUser.role === 'admin' },
   ].filter((i) => i.allowed);
 
   return (
@@ -72,7 +74,7 @@ export const BottomNav: React.FC<BottomNavProps> = ({
             <span className="flex items-center justify-center w-9 h-7 rounded-lg">
               <FileSpreadsheet className="w-5 h-5" />
             </span>
-            <span className="text-[10px] font-semibold">Reports</span>
+            <span className="text-[10px] font-semibold">{t('bottom.reports')}</span>
           </button>
         )}
       </div>

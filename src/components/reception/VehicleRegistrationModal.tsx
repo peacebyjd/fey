@@ -11,6 +11,8 @@ import {
   buildJobHandoverMessage,
 } from './jobCardCheckpoints';
 import { CompactSignaturePad } from '../common/CompactSignaturePad';
+import { DocumentShareButton } from '../common/DocumentShareButton';
+import { PdfService } from '../../services/pdfService';
 import {
   X,
   Check,
@@ -26,6 +28,8 @@ import {
   Plus,
   Trash2,
   Wrench,
+  Search,
+  Eraser,
 } from 'lucide-react';
 
 interface VehicleRegistrationModalProps {
@@ -158,65 +162,85 @@ export const VehicleRegistrationModal: React.FC<VehicleRegistrationModalProps> =
     setRequirements((prev) => prev.filter((r) => r.id !== id));
   };
 
-  // CHECKPOINT INTERACTIVE SELECTION & PALETTE STAMP
-  const [selectedCheckpoint, setSelectedCheckpoint] = useState<string | null>(null);
-  const [activeCodeBrush, setActiveCodeBrush] = useState<string | null>(null);
+  // CONDITION CHECKLIST CONTROLS: tap-to-mark plus an inline code picker
+  const [openCodeItem, setOpenCodeItem] = useState<string | null>(null);
   const [checkpointNotice, setCheckpointNotice] = useState<string | null>(null);
   const [activeInspectionTab, setActiveInspectionTab] = useState<string>(JOB_CARD_TABS[0].id);
+  const [checklistFilter, setChecklistFilter] = useState<'all' | 'flagged'>('all');
+  const [checklistQuery, setChecklistQuery] = useState('');
+
+  const totalCheckpoints = JOB_CARD_SECTIONS.reduce((sum, cat) => sum + cat.items.length, 0);
+  const checkedCount = Object.values(conditionChecklist).filter(Boolean).length;
+  const flaggedCount = flaggedItems.length;
+  const codeCounts = CONDITION_LEGEND.map((legend) => ({
+    ...legend,
+    count: Object.values(conditionChecklist).filter((code) => code === legend.code).length,
+  })).filter((legend) => legend.count > 0);
 
   if (!isOpen) return null;
 
-  // Clicking a checkpoint item: if brush is active, stamps code immediately. If no brush, selects item for palette code.
-  const handleCheckpointClick = (item: string) => {
-    if (activeCodeBrush) {
-      setConditionChecklist((prev) => ({ ...prev, [item]: activeCodeBrush }));
-      setSelectedCheckpoint(item);
-      const label = CONDITION_LEGEND.find((l) => l.code === activeCodeBrush)?.label || activeCodeBrush;
-      setCheckpointNotice(`Stamped "${item}" as ${activeCodeBrush} (${label})`);
-      setTimeout(() => setCheckpointNotice(null), 2500);
-    } else {
-      setSelectedCheckpoint(item);
-    }
+  const flashChecklistNotice = (message: string) => {
+    setCheckpointNotice(message);
+    window.setTimeout(() => setCheckpointNotice(null), 2200);
   };
 
-  // Clicking a code button on the top Code Palette
-  const handleApplyCodeFromPalette = (code: string) => {
-    if (selectedCheckpoint) {
-      setConditionChecklist((prev) => ({ ...prev, [selectedCheckpoint]: code }));
-      const label = CONDITION_LEGEND.find((l) => l.code === code)?.label || code;
-      setCheckpointNotice(`Assigned "${code}" (${label}) to ${selectedCheckpoint}`);
-      setTimeout(() => setCheckpointNotice(null), 2500);
-    }
-    setActiveCodeBrush(code);
+  /**
+   * Tap the item name: most parts are fine, so one tap marks ✓ and a second
+   * tap removes it. Anything damaged is two taps via the code box.
+   */
+  const handleCheckpointTap = (item: string) => {
+    setConditionChecklist((prev) => {
+      const next = { ...prev };
+      if (next[item] === '✓') delete next[item];
+      else next[item] = '✓';
+      return next;
+    });
+    setOpenCodeItem(null);
   };
 
-  const handleClearSelectedOrBrush = () => {
-    if (selectedCheckpoint) {
-      setConditionChecklist((prev) => {
-        const copy = { ...prev };
-        delete copy[selectedCheckpoint];
-        return copy;
-      });
-      setCheckpointNotice(`Cleared code for ${selectedCheckpoint}`);
-      setTimeout(() => setCheckpointNotice(null), 2000);
-    }
-    setActiveCodeBrush(null);
-  };
-
-  // Specific code setter
   const handleSetCode = (item: string, code: string) => {
     setConditionChecklist((prev) => {
-      if (prev[item] === code) {
-        const copy = { ...prev };
-        delete copy[item];
-        return copy;
-      }
-      return { ...prev, [item]: code };
+      const next = { ...prev };
+      if (next[item] === code) delete next[item];
+      else next[item] = code;
+      return next;
     });
+    setOpenCodeItem(null);
+    const label = CONDITION_LEGEND.find((l) => l.code === code)?.label || code;
+    flashChecklistNotice(`${item} → ${code} (${label})`);
   };
 
-  // Quick Action: Mark all items as Available (✓)
+  const handleClearItem = (item: string) => {
+    setConditionChecklist((prev) => {
+      const next = { ...prev };
+      delete next[item];
+      return next;
+    });
+    setOpenCodeItem(null);
+  };
+
+  // One tap fills a whole area — the usual case for a car with no damage there.
+  const handleMarkSectionAvailable = (items: string[]) => {
+    setConditionChecklist((prev) => {
+      const next = { ...prev };
+      items.forEach((item) => {
+        next[item] = '✓';
+      });
+      return next;
+    });
+    setOpenCodeItem(null);
+    flashChecklistNotice(`${items.length} items marked Available (✓)`);
+  };
+
   const handleMarkAllAvailable = () => {
+    if (
+      flaggedCount > 0 &&
+      !window.confirm(
+        `Mark all ${totalCheckpoints} checkpoints as Available? This replaces ${flaggedCount} recorded fault code(s).`
+      )
+    ) {
+      return;
+    }
     const all: Record<string, string> = {};
     JOB_CARD_SECTIONS.forEach((cat) => {
       cat.items.forEach((item) => {
@@ -224,14 +248,19 @@ export const VehicleRegistrationModal: React.FC<VehicleRegistrationModalProps> =
       });
     });
     setConditionChecklist(all);
-    setCheckpointNotice('Marked all checkpoints as Available (✓)');
-    setTimeout(() => setCheckpointNotice(null), 2000);
+    setOpenCodeItem(null);
+    flashChecklistNotice('All checkpoints marked Available (✓)');
   };
 
-  const handleClearAll = () => {
+  const handleClearChecklist = () => {
+    if (checkedCount === 0) return;
+    const confirmed = window.confirm(
+      `Clear all ${checkedCount} recorded condition codes? The description, remark, photos and requirements stay as they are.`
+    );
+    if (!confirmed) return;
     setConditionChecklist({});
-    setSelectedCheckpoint(null);
-    setActiveCodeBrush(null);
+    setOpenCodeItem(null);
+    flashChecklistNotice('Condition checklist cleared.');
   };
 
   const validate = (): boolean => {
@@ -266,11 +295,8 @@ export const VehicleRegistrationModal: React.FC<VehicleRegistrationModalProps> =
     return true;
   };
 
-  const handleSave = (isDraft: boolean = false) => {
-    setValidationError(null);
-    if (!isDraft && !validate()) return;
-
-    const newJob: JobRecord = {
+  /** Builds the job card record from the current form — used to save, share and preview. */
+  const buildJobRecord = (isDraft: boolean): JobRecord => ({
       id: editingJob ? editingJob.id : `job-${Date.now()}`,
       jobNumber,
       status: editingJob ? editingJob.status : isDraft ? 'Received' : 'Awaiting Quotation Approval',
@@ -374,7 +400,13 @@ export const VehicleRegistrationModal: React.FC<VehicleRegistrationModalProps> =
         },
         ...(editingJob?.auditTrail || []),
       ],
-    };
+    });
+
+  const handleSave = (isDraft: boolean = false) => {
+    setValidationError(null);
+    if (!isDraft && !validate()) return;
+
+    const newJob = buildJobRecord(isDraft);
 
     StorageService.saveJob(newJob);
 
@@ -411,32 +443,90 @@ export const VehicleRegistrationModal: React.FC<VehicleRegistrationModalProps> =
 
   const renderCheckpointRow = (item: string) => {
     const code = conditionChecklist[item];
-    const isSelected = selectedCheckpoint === item;
     const legendItem = CONDITION_LEGEND.find((l) => l.code === code);
+    const isOpen = openCodeItem === item;
 
     return (
-      <button
-        type="button"
+      <div
         key={item}
-        onClick={() => handleCheckpointClick(item)}
-        className={`w-full flex items-center justify-between gap-2 pl-2.5 pr-2 py-1.5 select-none transition cursor-pointer border-l-2 text-left ${
-          isSelected
-            ? 'bg-sand/70 border-l-brand text-ink font-bold'
-            : 'border-l-transparent hover:bg-sand/40 text-ink'
-        }`}
-        title={`Tap to select "${item}", then tap a code in the Code Palette — or activate a stamp code first.`}
+        className={
+          code && code !== '✓' ? 'bg-coral/[0.045]' : isOpen ? 'bg-sand/40' : ''
+        }
       >
-        <span className="truncate text-[11px]">{item}</span>
-        <span
-          className={`w-7 h-6 flex items-center justify-center font-mono font-bold rounded-md border text-xs shrink-0 ${
-            code
-              ? legendItem?.color || 'bg-ink text-white'
-              : 'border-dashed border-line text-ink-muted/40 hover:border-ink-muted'
-          }`}
-        >
-          {code || '·'}
-        </span>
-      </button>
+        <div className="flex items-center gap-1 pl-2 pr-1.5">
+          <button
+            type="button"
+            onClick={() => handleCheckpointTap(item)}
+            className="group flex-1 min-w-0 flex items-center gap-1.5 py-1.5 text-left cursor-pointer"
+            title={`Tap to mark "${item}" as Available (✓). Tap again to remove.`}
+          >
+            <span
+              className={`w-3.5 h-3.5 rounded-full border flex items-center justify-center shrink-0 ${
+                code === '✓'
+                  ? 'border-emerald-600 bg-emerald-600 text-white'
+                  : code
+                  ? 'border-coral bg-coral'
+                  : 'border-line group-hover:border-ink-muted'
+              }`}
+            >
+              {code === '✓' && <Check className="w-2.5 h-2.5" strokeWidth={3.5} />}
+            </span>
+            <span
+              className={`truncate text-[11px] ${
+                code === '✓' ? 'text-ink-muted' : 'text-ink'
+              }`}
+            >
+              {item}
+            </span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setOpenCodeItem(isOpen ? null : item)}
+            aria-expanded={isOpen}
+            aria-label={`Condition code for ${item}`}
+            title="Record damage: tap to choose a condition code"
+            className={`w-8 h-6 flex items-center justify-center font-mono font-bold rounded border text-[11px] shrink-0 transition cursor-pointer ${
+              code
+                ? legendItem?.color || 'bg-ink text-white'
+                : 'border-dashed border-line text-ink-muted/50 hover:border-ink-muted'
+            }`}
+          >
+            {code || '·'}
+          </button>
+        </div>
+
+        {isOpen && (
+          <div className="px-2 pb-2 pt-0.5 space-y-1">
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-1">
+              {CONDITION_LEGEND.map((legend) => (
+                <button
+                  key={legend.code}
+                  type="button"
+                  onClick={() => handleSetCode(item, legend.code)}
+                  className={`flex items-center justify-center gap-1 px-1 py-1 rounded border text-[10px] font-semibold transition cursor-pointer ${legend.color} ${
+                    code === legend.code ? 'ring-1 ring-brand ring-offset-1' : 'hover:brightness-95'
+                  }`}
+                >
+                  <span className="font-mono font-bold">{legend.code}</span>
+                  <span className="truncate">{legend.label}</span>
+                </button>
+              ))}
+            </div>
+            <div className="flex items-center justify-between gap-2">
+              <span className="text-[10px] text-ink-muted">Tap a code to record the condition.</span>
+              <button
+                type="button"
+                onClick={() => handleClearItem(item)}
+                className="flex items-center gap-1 text-[10px] font-semibold text-ink-muted hover:text-brand transition cursor-pointer"
+              >
+                <Eraser className="w-3 h-3" />
+                <span>Erase</span>
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
     );
   };
 
@@ -455,6 +545,21 @@ export const VehicleRegistrationModal: React.FC<VehicleRegistrationModalProps> =
           </div>
 
           <div className="flex items-center gap-2 shrink-0">
+            <DocumentShareButton
+              title={`Vehicle Condition Report — ${jobNumber}`}
+              text={`Condition of vehicle · ${jobNumber} · ${plateNumber || 'No plate'} · ${
+                flaggedCount > 0 ? `${flaggedCount} item(s) need attention` : 'all checked items available'
+              } · ${checkedCount}/${totalCheckpoints} checked\n${
+                StorageService.getSettings().garageName
+              }`}
+              getPdf={() =>
+                PdfService.generateRepairJobCardPdf(
+                  buildJobRecord(true),
+                  StorageService.getSettings(),
+                  { download: false }
+                )
+              }
+            />
             <button
               type="button"
               onClick={handlePrint}
@@ -704,126 +809,141 @@ export const VehicleRegistrationModal: React.FC<VehicleRegistrationModalProps> =
               </div>
             </div>
 
-            {/* SECTION 2: CONDITION OF VEHICLE CHECKLIST (Interactive Checkpoint Grid) */}
+            {/* SECTION 2: CONDITION OF VEHICLE */}
             <div className="space-y-2">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b-2 border-line pb-2">
-                <div>
+              <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-2 border-b-2 border-line pb-2">
+                <div className="min-w-0">
                   <h3 className="text-sm font-black uppercase tracking-wider text-ink">
                     CONDITION OF VEHICLE
                   </h3>
                   <p className="text-[11px] text-ink-muted">
-                    Click each checkpoint to cycle or assign condition codes. You can also use the 1-click Quick Fill.
+                    Tap an item to mark it <b>Available (✓)</b>. Tap the code box to record damage,
+                    scratch, dent or a missing part.
                   </p>
                 </div>
 
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 shrink-0">
                   <button
                     type="button"
                     onClick={handleMarkAllAvailable}
-                    className="px-3 py-1 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-lg transition cursor-pointer flex items-center gap-1 shadow-2xs"
+                    className="flex items-center gap-1 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-[11px] rounded-lg transition cursor-pointer"
                   >
                     <CheckCheck className="w-3.5 h-3.5" />
-                    <span>Quick: Mark All Available (✓)</span>
+                    <span>All available</span>
                   </button>
 
                   <button
                     type="button"
-                    onClick={handleClearAll}
-                    className="px-2.5 py-1 bg-sand hover:bg-line text-ink text-xs font-semibold rounded-lg transition cursor-pointer flex items-center gap-1"
+                    onClick={handleClearChecklist}
+                    disabled={checkedCount === 0}
+                    className="flex items-center gap-1 px-2.5 py-1.5 bg-white border border-line hover:border-coral/50 hover:text-brand text-ink text-[11px] font-semibold rounded-lg transition cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
                   >
                     <RotateCcw className="w-3 h-3" />
-                    <span>Clear</span>
+                    <span>Clear checklist</span>
                   </button>
                 </div>
               </div>
 
-              {/* INTERACTIVE CODE PICKER PALETTE & SELECTION TOOL */}
-              <div className="p-3 bg-sand/40 border-2 border-line rounded-lg space-y-2.5">
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-line pb-2">
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <span className="text-xs font-black uppercase tracking-wider text-ink">
-                      Code Palette:
+              {/* Progress, filters and review */}
+              <div className="rounded-lg border border-line bg-sand/30 p-2.5 space-y-2">
+                <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2">
+                  <div className="flex flex-wrap items-center gap-1.5">
+                    <span className="text-[11px] font-bold text-ink">
+                      {checkedCount}
+                      <span className="font-medium text-ink-muted"> / {totalCheckpoints} checked</span>
                     </span>
-                    {selectedCheckpoint ? (
-                      <span className="px-2.5 py-0.5 bg-amber-200 text-amber-950 font-bold text-xs rounded border border-amber-400 flex items-center gap-1.5 shadow-2xs">
-                        <span>Selected:</span>
-                        <span className="underline decoration-[#800020] decoration-2">{selectedCheckpoint}</span>
-                        {conditionChecklist[selectedCheckpoint] ? (
-                          <span className="font-mono text-[10px] bg-white px-1.5 py-0.2 rounded border border-line font-bold">
-                            Current: {conditionChecklist[selectedCheckpoint]}
-                          </span>
-                        ) : (
-                          <span className="text-[10px] text-ink-muted font-medium">
-                            (No code set)
-                          </span>
-                        )}
+                    <span
+                      className={`px-1.5 py-0.5 rounded border text-[9.5px] font-bold ${
+                        flaggedCount > 0
+                          ? 'text-brand bg-coral/10 border-coral/30'
+                          : 'text-emerald-700 bg-emerald-50 border-emerald-300'
+                      }`}
+                    >
+                      {flaggedCount > 0 ? `${flaggedCount} flagged` : 'No faults yet'}
+                    </span>
+                    {codeCounts.map((legend) => (
+                      <span
+                        key={legend.code}
+                        className={`px-1.5 py-0.5 rounded border text-[9.5px] font-semibold ${legend.color}`}
+                      >
+                        {legend.code} {legend.label} · {legend.count}
                       </span>
-                    ) : (
-                      <span className="text-[11px] text-ink-muted italic">
-                        (Click any checkpoint item like &ldquo;Water Tank Cup&rdquo;, then click a code button below)
-                      </span>
-                    )}
+                    ))}
                   </div>
 
-                  {activeCodeBrush && (
-                    <div className="flex items-center gap-2 text-xs">
-                      <span className="text-[11px] text-ink-muted font-semibold">Active Stamp:</span>
-                      <span className="font-mono font-bold px-2 py-0.5 rounded bg-brand text-white text-xs">
-                        {activeCodeBrush} = {CONDITION_LEGEND.find((l) => l.code === activeCodeBrush)?.label}
-                      </span>
+                  <div className="flex items-center gap-1.5">
+                    <div className="flex rounded-md border border-line bg-white p-0.5">
                       <button
                         type="button"
-                        onClick={() => setActiveCodeBrush(null)}
-                        className="text-[11px] text-coral hover:underline font-semibold cursor-pointer"
+                        onClick={() => setChecklistFilter('all')}
+                        className={`px-2 py-0.5 rounded text-[10px] font-semibold transition cursor-pointer ${
+                          checklistFilter === 'all'
+                            ? 'bg-brand text-white'
+                            : 'text-ink-muted hover:text-ink'
+                        }`}
                       >
-                        Turn Off Stamp
+                        All
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setChecklistFilter('flagged')}
+                        className={`px-2 py-0.5 rounded text-[10px] font-semibold transition cursor-pointer ${
+                          checklistFilter === 'flagged'
+                            ? 'bg-brand text-white'
+                            : 'text-ink-muted hover:text-ink'
+                        }`}
+                      >
+                        Flagged {flaggedCount > 0 ? `(${flaggedCount})` : ''}
                       </button>
                     </div>
-                  )}
-                </div>
-
-                {/* Clickable Code Palette Buttons */}
-                <div className="flex flex-wrap items-center gap-2">
-                  {CONDITION_LEGEND.map((l) => {
-                    const isBrush = activeCodeBrush === l.code;
-                    return (
-                      <button
-                        key={l.code}
-                        type="button"
-                        onClick={() => handleApplyCodeFromPalette(l.code)}
-                        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs font-mono font-bold transition cursor-pointer shadow-2xs ${l.color} ${
-                          isBrush
-                            ? 'ring-2 ring-brand ring-offset-2 scale-105'
-                            : 'hover:scale-102 hover:shadow-xs'
-                        }`}
-                        title={
-                          selectedCheckpoint
-                            ? `Set "${selectedCheckpoint}" to ${l.code} (${l.label})`
-                            : `Select ${l.code} (${l.label}) as active stamp`
-                        }
-                      >
-                        <span className="font-black text-sm px-1 py-0.2 bg-black/10 rounded">{l.code}</span>
-                        <span className="font-sans font-semibold text-xs">{l.label}</span>
-                      </button>
-                    );
-                  })}
-
-                  <button
-                    type="button"
-                    onClick={handleClearSelectedOrBrush}
-                    className="px-3 py-1.5 rounded-lg border border-line bg-white hover:bg-sand/50 text-ink text-xs font-semibold flex items-center gap-1.5 transition cursor-pointer shadow-2xs"
-                    title="Erase code for selected checkpoint or turn off stamp tool"
-                  >
-                    <RotateCcw className="w-3.5 h-3.5 text-ink-muted" />
-                    <span>Clear / Erase</span>
-                  </button>
+                    <label className="relative block">
+                      <span className="sr-only">Find a checkpoint</span>
+                      <Search className="w-3.5 h-3.5 text-ink-muted absolute left-2 top-1/2 -translate-y-1/2 pointer-events-none" />
+                      <input
+                        value={checklistQuery}
+                        onChange={(event) => setChecklistQuery(event.target.value)}
+                        placeholder="Find item"
+                        className="w-32 sm:w-40 pl-7 pr-2 py-1 text-[11px] bg-white border border-line rounded-md focus:outline-none focus:ring-1 focus:ring-[#800020]"
+                      />
+                    </label>
+                  </div>
                 </div>
 
                 {checkpointNotice && (
-                  <div className="text-xs text-emerald-900 bg-emerald-50 border border-emerald-300 px-3 py-1.5 rounded-lg flex items-center gap-2 font-medium">
-                    <Check className="w-4 h-4 text-emerald-600 shrink-0" />
+                  <div className="text-[11px] text-emerald-900 bg-emerald-50 border border-emerald-300 px-2.5 py-1 rounded-md flex items-center gap-1.5 font-medium">
+                    <Check className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
                     <span>{checkpointNotice}</span>
                   </div>
+                )}
+
+                {flaggedCount > 0 && (
+                  <details className="rounded-md border border-line bg-white px-2.5 py-1.5">
+                    <summary className="text-[11px] font-bold text-ink cursor-pointer select-none">
+                      Inspection review — {flaggedCount} item{flaggedCount === 1 ? '' : 's'} need
+                      attention
+                    </summary>
+                    <div className="mt-1.5 grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-1">
+                      {flaggedItems.map((item) => {
+                        const code = conditionChecklist[item];
+                        const legend = CONDITION_LEGEND.find((entry) => entry.code === code);
+                        return (
+                          <div
+                            key={item}
+                            className="flex items-center justify-between gap-2 text-[10.5px]"
+                          >
+                            <span className="truncate text-ink">{item}</span>
+                            <span
+                              className={`shrink-0 px-1.5 rounded border font-mono font-bold text-[9.5px] ${
+                                legend?.color || 'bg-line text-ink'
+                              }`}
+                            >
+                              {code} · {legend?.label || code}
+                            </span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </details>
                 )}
               </div>
 
@@ -831,7 +951,10 @@ export const VehicleRegistrationModal: React.FC<VehicleRegistrationModalProps> =
               <div className="flex flex-wrap gap-1.5" role="tablist" aria-label="Vehicle inspection areas">
                 {JOB_CARD_TABS.map((tab) => {
                   const isActive = activeInspectionTab === tab.id;
-                  const total = tab.sections.reduce((sum, s) => sum + s.items.length, 0);
+                  const items = tab.sections.flatMap((section) => section.items);
+                  const tabFlagged = items.filter(
+                    (item) => conditionChecklist[item] && conditionChecklist[item] !== '✓'
+                  ).length;
                   return (
                     <button
                       key={tab.id}
@@ -848,10 +971,14 @@ export const VehicleRegistrationModal: React.FC<VehicleRegistrationModalProps> =
                       {tab.title}
                       <span
                         className={`text-[10px] font-mono px-1.5 py-0.5 rounded-full ${
-                          isActive ? 'bg-white/25' : 'bg-sand text-brand'
+                          tabFlagged > 0
+                            ? 'bg-coral text-white'
+                            : isActive
+                            ? 'bg-white/25'
+                            : 'bg-sand text-brand'
                         }`}
                       >
-                        {total}
+                        {tabFlagged > 0 ? `${tabFlagged}/${items.length}` : items.length}
                       </span>
                     </button>
                   );
@@ -859,23 +986,75 @@ export const VehicleRegistrationModal: React.FC<VehicleRegistrationModalProps> =
               </div>
 
               <div className="border border-line rounded-xl overflow-hidden bg-white max-h-[440px] overflow-y-auto smooth-scroll">
-                {JOB_CARD_TABS.filter((t) => t.id === activeInspectionTab).map((tab) => (
-                  <div
-                    key={tab.id}
-                    className="grid grid-cols-1 md:grid-cols-2 divide-y md:divide-y-0 md:divide-x divide-line"
-                  >
-                    {tab.sections.map((section) => (
-                      <div key={section.title} className="min-w-0">
-                        <div className="bg-sand text-brand font-black uppercase tracking-wider text-[10px] px-2.5 py-1.5">
-                          {section.title}
-                        </div>
-                        <div className="divide-y divide-line">
-                          {section.items.map((item) => renderCheckpointRow(item))}
-                        </div>
+                {(() => {
+                  const query = checklistQuery.trim().toLowerCase();
+                  const tab = JOB_CARD_TABS.find((item) => item.id === activeInspectionTab);
+                  const sections = (tab?.sections || [])
+                    .map((section) => ({
+                      title: section.title,
+                      allItems: section.items,
+                      items: section.items.filter((item) => {
+                        const code = conditionChecklist[item];
+                        const isFlagged = !!code && code !== '✓';
+                        if (checklistFilter === 'flagged' && !isFlagged) return false;
+                        if (query && !item.toLowerCase().includes(query)) return false;
+                        return true;
+                      }),
+                    }))
+                    .filter((section) => section.items.length > 0);
+
+                  if (sections.length === 0) {
+                    return (
+                      <div className="p-6 text-center text-[11px] text-ink-muted">
+                        {checklistFilter === 'flagged'
+                          ? 'No flagged items in this area. Switch to “All” to keep inspecting.'
+                          : 'No checkpoint matches your search.'}
                       </div>
-                    ))}
-                  </div>
-                ))}
+                    );
+                  }
+
+                  return (
+                    <div
+                      className={`grid grid-cols-1 ${
+                        sections.length > 1 ? 'md:grid-cols-2' : ''
+                      } divide-y md:divide-y-0 md:divide-x divide-line`}
+                    >
+                      {sections.map((section) => {
+                        const sectionFlagged = section.allItems.filter((item) => {
+                          const code = conditionChecklist[item];
+                          return !!code && code !== '✓';
+                        }).length;
+                        return (
+                          <div key={section.title} className="min-w-0">
+                            <div className="flex items-center justify-between gap-2 bg-sand text-brand px-2.5 py-1">
+                              <span className="font-black uppercase tracking-wider text-[10px] truncate">
+                                {section.title}
+                              </span>
+                              <span className="flex items-center gap-2 shrink-0">
+                                {sectionFlagged > 0 && (
+                                  <span className="text-[9px] font-bold text-coral">
+                                    {sectionFlagged} flagged
+                                  </span>
+                                )}
+                                <button
+                                  type="button"
+                                  onClick={() => handleMarkSectionAvailable(section.allItems)}
+                                  className="text-[9px] font-bold uppercase tracking-wide text-brand/80 hover:text-brand hover:underline cursor-pointer"
+                                  title={`Mark all ${section.allItems.length} ${section.title} items as Available (✓)`}
+                                >
+                                  All ✓
+                                </button>
+                              </span>
+                            </div>
+                            <div className="divide-y divide-line">
+                              {section.items.map((item) => renderCheckpointRow(item))}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  );
+                })()}
               </div>
             </div>
 

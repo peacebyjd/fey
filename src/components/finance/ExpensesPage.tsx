@@ -7,6 +7,7 @@ import {
 } from '../../types';
 import { StorageService } from '../../services/storage';
 import { canManagePricing } from '../../services/permissions';
+import { useLanguage } from '../../i18n/LanguageContext';
 import { dateKey } from '../../services/payroll';
 import {
   CalendarDays,
@@ -32,6 +33,7 @@ const categoryBadge = (category: ExpenseCategory) => {
 };
 
 export const ExpensesPage: React.FC<ExpensesPageProps> = ({ currentUser }) => {
+  const { t } = useLanguage();
   const settings = StorageService.getSettings();
   const canManage = canManagePricing(currentUser.role);
 
@@ -98,9 +100,9 @@ export const ExpensesPage: React.FC<ExpensesPageProps> = ({ currentUser }) => {
               <ReceiptText className="w-4 h-4" />
             </span>
             <div>
-              <h2 className="text-lg font-extrabold text-ink">Expenses</h2>
+              <h2 className="text-lg font-extrabold text-ink">{t('expenses.title')}</h2>
               <p className="text-[11px] text-ink-muted">
-                Salary payments are added automatically. Record all other costs here.
+                {t('expenses.description')}
               </p>
             </div>
           </div>
@@ -111,22 +113,22 @@ export const ExpensesPage: React.FC<ExpensesPageProps> = ({ currentUser }) => {
               className="inline-flex items-center justify-center gap-1.5 px-3.5 py-2.5 rounded-xl bg-brand hover:bg-brand-hover text-white text-xs font-bold cursor-pointer"
             >
               <Plus className="w-4 h-4" />
-              Add expense
+              {t('expenses.add')}
             </button>
           )}
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 mt-4">
           <div className="p-3 rounded-xl bg-coral/10 border border-coral/30">
-            <p className="text-[10px] font-semibold text-brand uppercase tracking-wide">Total expenses</p>
+            <p className="text-[10px] font-semibold text-brand uppercase tracking-wide">{t('expenses.total')}</p>
             <p className="text-lg font-bold text-brand tabular-nums">{money(total)}</p>
           </div>
           <div className="p-3 rounded-xl bg-emerald-50 border border-emerald-200">
-            <p className="text-[10px] font-semibold text-emerald-800 uppercase tracking-wide">Paid salaries</p>
+            <p className="text-[10px] font-semibold text-emerald-800 uppercase tracking-wide">{t('expenses.paidSalaries')}</p>
             <p className="text-lg font-bold text-emerald-800 tabular-nums">{money(salaryTotal)}</p>
           </div>
           <div className="p-3 rounded-xl bg-sand/40 border border-line">
-            <p className="text-[10px] font-semibold text-ink-muted uppercase tracking-wide">This month</p>
+            <p className="text-[10px] font-semibold text-ink-muted uppercase tracking-wide">{t('expenses.thisMonth')}</p>
             <p className="text-lg font-bold text-ink tabular-nums">{money(monthTotal)}</p>
           </div>
         </div>

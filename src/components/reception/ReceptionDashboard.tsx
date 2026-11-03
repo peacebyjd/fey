@@ -5,8 +5,10 @@ import { PdfService } from '../../services/pdfService';
 import { StatusBadge } from '../common/StatusBadge';
 import { VehicleRegistrationModal } from './VehicleRegistrationModal';
 import { OfficialJobCardSheet } from './OfficialJobCardSheet';
+import { InsuranceVoucherModal } from './InsuranceVoucherModal';
 import { PartsRequestModal } from './PartsRequestModal';
 import { DEMO_SAMPLE_JOB } from '../../services/sampleData';
+import { useLanguage } from '../../i18n/LanguageContext';
 import {
   Car,
   Plus,
@@ -26,6 +28,7 @@ import {
   PackagePlus,
 } from 'lucide-react';
 
+
 interface ReceptionDashboardProps {
   jobs: JobRecord[];
   currentUser: User;
@@ -39,11 +42,14 @@ export const ReceptionDashboard: React.FC<ReceptionDashboardProps> = ({
   onOpenJobDetail,
   onRefreshJobs,
 }) => {
+  const { t } = useLanguage();
+  const settings = StorageService.getSettings();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingJob, setEditingJob] = useState<JobRecord | null>(null);
   const [selectedJobForJobCard, setSelectedJobForJobCard] = useState<JobRecord | null>(null);
   const [showBlankJobCard, setShowBlankJobCard] = useState(false);
   const [showSampleJobCard, setShowSampleJobCard] = useState(false);
+  const [showInsuranceVoucher, setShowInsuranceVoucher] = useState(false);
   const [partsJob, setPartsJob] = useState<JobRecord | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
@@ -146,51 +152,84 @@ export const ReceptionDashboard: React.FC<ReceptionDashboardProps> = ({
 
   return (
     <div className="space-y-5">
-      {/* Top Banner & Intake CTA */}
-      <div className="bg-white rounded-2xl border border-line/80 p-4 sm:p-6 flex flex-col md:flex-row items-start md:items-center justify-between gap-4 shadow-2xs">
-        <div>
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="text-xs font-bold uppercase tracking-wider text-[#800020]">
-              ፋያሜት አውቶ ጋራጅ · fyamet AUTO GARAGE
-            </span>
-            <span className="hidden sm:inline text-line">·</span>
-            <span className="text-xs font-medium text-ink-muted bg-sand/50 px-2 py-0.5 rounded border border-line">
-              አዲስ አበባ · Addis Ababa- Ethiopia
-            </span>
+      {/* Compact header: title, intake actions and live counts in one card */}
+      <div className="bg-white rounded-2xl border border-line/80 p-3 sm:p-4 shadow-2xs">
+        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3">
+          <div className="min-w-0">
+            <h1 className="text-lg sm:text-xl font-bold text-ink leading-tight">
+              {t('recorder.title')}
+            </h1>
+            <p className="text-[11px] text-ink-muted mt-0.5 truncate">
+              <span className="font-semibold text-[#800020]">{settings.garageName}</span>
+              <span className="mx-1.5 text-line">·</span>
+              {settings.address}
+            </p>
           </div>
-          <h1 className="text-xl sm:text-2xl font-bold text-ink mt-1">
-            Recorder &amp; Intake
-          </h1>
-          <p className="text-xs text-ink-muted mt-0.5">
-            Register the vehicle and repair requirements. Finance sets the prices.
-          </p>
+
+          <div className="flex items-center gap-1.5 flex-wrap">
+            <button
+              type="button"
+              onClick={() => setShowInsuranceVoucher(true)}
+              disabled={jobs.length === 0}
+              className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-blue-50 hover:bg-blue-100 text-blue-900 border border-blue-200 font-semibold text-[11px] sm:text-xs transition cursor-pointer disabled:opacity-50"
+              title={t('recorder.insurancePayment')}
+            >
+              <ShieldCheck className="w-3.5 h-3.5 text-blue-700" />
+              <span>{t('recorder.insurancePayment')}</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setShowBlankJobCard(true)}
+              className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-sand/50 hover:bg-sand text-ink font-semibold text-[11px] sm:text-xs transition cursor-pointer"
+              title={t('recorder.blankJobCard')}
+            >
+              <Printer className="w-3.5 h-3.5 text-ink-muted" />
+              <span>{t('recorder.blankJobCard')}</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setShowSampleJobCard(true)}
+              className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-sand/50 hover:bg-sand text-ink font-semibold text-[11px] sm:text-xs transition cursor-pointer"
+              title={t('recorder.sampleJobCard')}
+            >
+              <FileText className="w-3.5 h-3.5 text-brand" />
+              <span>{t('recorder.sampleJobCard')}</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => handleOpenRegistration()}
+              className="flex items-center justify-center gap-1.5 px-4 py-2 rounded-xl bg-[#800020] hover:bg-[#600018] text-white font-bold text-[11px] sm:text-xs shadow-xs transition cursor-pointer shrink-0"
+            >
+              <Plus className="w-3.5 h-3.5" />
+              <span>{t('recorder.newJobCard')}</span>
+            </button>
+          </div>
         </div>
 
-        <div className="flex items-center gap-2 flex-wrap w-full sm:w-auto">
-          <button
-            type="button"
-            onClick={() => setShowBlankJobCard(true)}
-            className="flex items-center gap-1.5 px-3.5 py-2.5 rounded-xl bg-sand/50 hover:bg-sand text-ink font-semibold text-xs transition cursor-pointer shadow-2xs"
-          >
-            <Printer className="w-3.5 h-3.5 text-ink-muted" />
-            <span>Blank Job Card</span>
-          </button>
-          <button
-            type="button"
-            onClick={() => setShowSampleJobCard(true)}
-            className="flex items-center gap-1.5 px-3.5 py-2.5 rounded-xl bg-sand/50 hover:bg-sand text-ink font-semibold text-xs transition cursor-pointer shadow-2xs"
-          >
-            <FileText className="w-3.5 h-3.5 text-brand" />
-            <span>Sample Job Card</span>
-          </button>
-          <button
-            type="button"
-            onClick={() => handleOpenRegistration()}
-            className="w-full sm:w-auto flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl bg-[#800020] hover:bg-[#600018] text-white font-bold text-xs sm:text-sm shadow-xs transition duration-150 cursor-pointer shrink-0"
-          >
-            <Plus className="w-4 h-4" />
-            <span>New Job Card</span>
-          </button>
+        {/* Slim live counts — one line instead of four cards */}
+        <div className="mt-3 pt-3 border-t border-line flex flex-wrap items-center gap-1.5 text-[11px]">
+          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-sand/50 border border-line">
+            <span className="text-ink-muted">{t('recorder.receivedToday')}</span>
+            <b className="font-mono text-ink tabular-nums">{totalRegisteredToday}</b>
+          </span>
+          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-sand/50 border border-line">
+            <span className="text-ink-muted">{t('recorder.activeJobs')}</span>
+            <b className="font-mono text-ink tabular-nums">
+              {jobs.filter((j) => j.status !== 'Completed' && j.status !== 'Cancelled').length}
+            </b>
+          </span>
+          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-amber-50 border border-amber-200">
+            <span className="text-amber-800">{t('recorder.awaitingInspection')}</span>
+            <b className="font-mono text-amber-800 tabular-nums">
+              {jobs.filter((j) => j.status === 'Awaiting Inspection' || j.status === 'Received').length}
+            </b>
+          </span>
+          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-blue-50 border border-blue-200">
+            <span className="text-blue-800">{t('recorder.insuranceClaims')}</span>
+            <b className="font-mono text-blue-800 tabular-nums">
+              {jobs.filter((j) => j.hasInsurance).length}
+            </b>
+          </span>
         </div>
       </div>
 
@@ -200,34 +239,6 @@ export const ReceptionDashboard: React.FC<ReceptionDashboardProps> = ({
           <span className="font-medium">{saveSuccessMessage}</span>
         </div>
       )}
-
-      {/* Quick Reception Metrics Strip */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        <div className="p-3.5 bg-white rounded-xl border border-line">
-          <p className="text-[11px] font-medium text-ink-muted">Received Today</p>
-          <p className="text-xl font-bold text-ink tabular-nums mt-0.5">
-            {totalRegisteredToday}
-          </p>
-        </div>
-        <div className="p-3.5 bg-white rounded-xl border border-line">
-          <p className="text-[11px] font-medium text-ink-muted">Total Active Jobs</p>
-          <p className="text-xl font-bold text-ink tabular-nums mt-0.5">
-            {jobs.filter((j) => j.status !== 'Completed' && j.status !== 'Cancelled').length}
-          </p>
-        </div>
-        <div className="p-3.5 bg-white rounded-xl border border-line">
-          <p className="text-[11px] font-medium text-ink-muted">Awaiting Inspection</p>
-          <p className="text-xl font-bold text-amber-700 tabular-nums mt-0.5">
-            {jobs.filter((j) => j.status === 'Awaiting Inspection' || j.status === 'Received').length}
-          </p>
-        </div>
-        <div className="p-3.5 bg-white rounded-xl border border-line">
-          <p className="text-[11px] font-medium text-ink-muted">Insurance Claims</p>
-          <p className="text-xl font-bold text-blue-700 tabular-nums mt-0.5">
-            {jobs.filter((j) => j.hasInsurance).length}
-          </p>
-        </div>
-      </div>
 
       {/* Search and Filters Toolbar */}
       <div className="bg-white rounded-xl border border-line p-3 sm:p-4 flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3">
@@ -240,7 +251,7 @@ export const ReceptionDashboard: React.FC<ReceptionDashboardProps> = ({
             type="text"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Search by Plate Number, Job #, Customer, or Model..."
+            placeholder={t('recorder.searchPlaceholder')}
             className="w-full pl-9 pr-3 py-2 text-xs sm:text-sm border border-line rounded-lg focus:outline-none focus:ring-1 focus:ring-[#800020]"
           />
         </div>
@@ -249,22 +260,22 @@ export const ReceptionDashboard: React.FC<ReceptionDashboardProps> = ({
         <div className="flex items-center gap-2">
           <div className="flex items-center gap-1.5 text-xs text-ink-muted">
             <Filter className="w-3.5 h-3.5" />
-            <span className="hidden sm:inline">Status:</span>
+            <span className="hidden sm:inline">{t('recorder.status')}</span>
           </div>
           <select
             value={statusFilter}
             onChange={(e) => setStatusFilter(e.target.value)}
             className="px-2.5 py-2 text-xs border border-line rounded-lg bg-sand/40 focus:outline-none focus:ring-1 focus:ring-[#800020]"
           >
-            <option value="all">All Statuses</option>
-            <option value="Received">Received</option>
-            <option value="Awaiting Inspection">Awaiting Inspection</option>
-            <option value="Awaiting Quotation Approval">Awaiting Quotation</option>
-            <option value="Awaiting Spare Parts">Awaiting Spare Parts</option>
-            <option value="Ready to Start">Ready to Start</option>
-            <option value="In Progress">In Progress</option>
-            <option value="Quality Check">Quality Check</option>
-            <option value="Ready for Delivery">Ready for Delivery</option>
+            <option value="all">{t('recorder.allStatuses')}</option>
+            <option value="Received">{t('status.received')}</option>
+            <option value="Awaiting Inspection">{t('status.awaitingInspection')}</option>
+            <option value="Awaiting Quotation Approval">{t('status.awaitingQuotation')}</option>
+            <option value="Awaiting Spare Parts">{t('status.awaitingParts')}</option>
+            <option value="Ready to Start">{t('status.readyToStart')}</option>
+            <option value="In Progress">{t('status.inProgress')}</option>
+            <option value="Quality Check">{t('status.qualityCheck')}</option>
+            <option value="Ready for Delivery">{t('status.readyForDelivery')}</option>
           </select>
 
           <select
@@ -272,9 +283,9 @@ export const ReceptionDashboard: React.FC<ReceptionDashboardProps> = ({
             onChange={(e) => setInsuranceFilter(e.target.value)}
             className="px-2.5 py-2 text-xs border border-line rounded-lg bg-sand/40 focus:outline-none focus:ring-1 focus:ring-[#800020]"
           >
-            <option value="all">All Billing</option>
-            <option value="insured">Insurance Covered</option>
-            <option value="direct">Private / Direct</option>
+            <option value="all">{t('recorder.allBilling')}</option>
+            <option value="insured">{t('recorder.insured')}</option>
+            <option value="direct">{t('recorder.direct')}</option>
           </select>
         </div>
       </div>
@@ -283,17 +294,17 @@ export const ReceptionDashboard: React.FC<ReceptionDashboardProps> = ({
       <div className="bg-white rounded-xl border border-line overflow-hidden shadow-2xs">
         <div className="px-4 py-3 border-b border-line flex items-center justify-between">
           <span className="text-xs font-bold text-ink uppercase tracking-wider">
-            Registered Vehicles ({filteredJobs.length})
+            {t('recorder.registeredVehicles', { count: filteredJobs.length })}
           </span>
-          <span className="text-[11px] text-ink-muted/70">Tap row to view full job record</span>
+          <span className="text-[11px] text-ink-muted/70">{t('recorder.tapRow')}</span>
         </div>
 
         {filteredJobs.length > 0 ? (
-          <div className="p-3 grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3">
+          <div className="p-2.5 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2.5">
             {filteredJobs.map((job) => (
               <div
                 key={job.id}
-                className="bg-white border border-line rounded-xl p-3.5 shadow-2xs space-y-2.5 hover:border-brand/50 transition"
+                className="bg-white border border-line rounded-xl p-3 shadow-2xs space-y-2 hover:border-brand/50 transition"
               >
                 <div className="flex items-center justify-between gap-2">
                   <span className="font-mono font-bold text-xs text-ink flex items-center gap-1.5 min-w-0">
@@ -311,9 +322,9 @@ export const ReceptionDashboard: React.FC<ReceptionDashboardProps> = ({
                   type="button"
                   onClick={() => onOpenJobDetail(job)}
                   className="text-left w-full cursor-pointer"
-                  title="Open the job record"
+                  title={t('recorder.openRecord')}
                 >
-                  <div className="font-bold text-lg text-ink font-mono tracking-wide">
+                  <div className="font-bold text-base text-ink font-mono tracking-wide">
                     {job.plateNumber}
                   </div>
                   <div className="text-xs text-ink-muted truncate">
@@ -323,13 +334,13 @@ export const ReceptionDashboard: React.FC<ReceptionDashboardProps> = ({
 
                 <div className="grid grid-cols-2 gap-2 text-[11px]">
                   <div className="bg-sand/40 border border-line rounded-lg px-2 py-1.5 min-w-0">
-                    <p className="text-ink-muted">Received</p>
+                    <p className="text-ink-muted">{t('recorder.received')}</p>
                     <p className="font-mono font-semibold text-ink truncate">{job.receivedAt}</p>
                   </div>
                   <div className="bg-sand/40 border border-line rounded-lg px-2 py-1.5 min-w-0">
-                    <p className="text-ink-muted">Team</p>
+                    <p className="text-ink-muted">{t('recorder.team')}</p>
                     <p className="font-semibold text-ink truncate">
-                      {job.assignedTeamName || 'Not assigned'}
+                      {job.assignedTeamName || t('common.notAssigned')}
                     </p>
                   </div>
                 </div>
@@ -342,7 +353,7 @@ export const ReceptionDashboard: React.FC<ReceptionDashboardProps> = ({
                         <span className="truncate">{job.insuranceCompany || 'Insured'}</span>
                       </>
                     ) : (
-                      <span className="truncate">Direct customer</span>
+                      <span className="truncate">{t('recorder.directCustomer')}</span>
                     )}
                   </span>
                   <span className="font-mono shrink-0">{job.customerPhone}</span>
@@ -354,7 +365,7 @@ export const ReceptionDashboard: React.FC<ReceptionDashboardProps> = ({
                   className="w-full flex items-center justify-center gap-1.5 px-2 py-2 bg-coral/5 hover:bg-coral/10 text-brand border border-dashed border-brand/40 rounded-lg text-[11px] font-bold transition cursor-pointer"
                 >
                   <PackagePlus className="w-3.5 h-3.5" />
-                  <span>Request Spare Part</span>
+                  <span>{t('recorder.requestPart')}</span>
                 </button>
 
                 <div className="flex items-center gap-1.5 pt-2 border-t border-line">
@@ -364,7 +375,7 @@ export const ReceptionDashboard: React.FC<ReceptionDashboardProps> = ({
                     className="flex-1 flex items-center justify-center gap-1 px-2 py-2 bg-brand hover:bg-brand-hover text-white rounded-lg text-[11px] font-bold transition cursor-pointer"
                   >
                     <Eye className="w-3.5 h-3.5" />
-                    <span>View</span>
+                    <span>{t('recorder.view')}</span>
                   </button>
                   <button
                     type="button"
@@ -372,12 +383,12 @@ export const ReceptionDashboard: React.FC<ReceptionDashboardProps> = ({
                     className="flex-1 flex items-center justify-center gap-1 px-2 py-2 bg-sand/60 hover:bg-sand text-brand border border-line rounded-lg text-[11px] font-semibold transition cursor-pointer"
                   >
                     <FileText className="w-3.5 h-3.5" />
-                    <span>Review</span>
+                    <span>{t('recorder.review')}</span>
                   </button>
                   <button
                     type="button"
                     onClick={() => handleOpenRegistration(job)}
-                    title="Edit intake details"
+                    title={t('recorder.editIntake')}
                     className="px-2.5 py-2 text-ink-muted hover:text-ink hover:bg-sand/60 rounded-lg border border-line transition cursor-pointer"
                   >
                     <Edit className="w-3.5 h-3.5" />
@@ -389,8 +400,8 @@ export const ReceptionDashboard: React.FC<ReceptionDashboardProps> = ({
         ) : (
           <div className="p-8 text-center text-xs text-ink-muted">
             <Car className="w-8 h-8 mx-auto text-line mb-2" />
-            <p className="font-semibold text-ink">No vehicle records match search filter</p>
-            <p className="mt-1">Click "New Job Card" to register an incoming vehicle with the official sheet format.</p>
+            <p className="font-semibold text-ink">{t('recorder.noRecords')}</p>
+            <p className="mt-1">{t('recorder.newJobHint')}</p>
           </div>
         )}
       </div>
@@ -404,17 +415,17 @@ export const ReceptionDashboard: React.FC<ReceptionDashboardProps> = ({
               <div className="flex items-center gap-2 min-w-0">
                 <span className="px-2.5 py-1 bg-coral/10 text-[#800020] text-xs font-bold rounded-lg border border-coral/30 uppercase tracking-wide shrink-0">
                   {showSampleJobCard
-                    ? 'Sample Job Card'
+                    ? t('recorder.sampleJobCard')
                     : showBlankJobCard
-                    ? 'Blank Job Card'
-                    : 'Review Job Card'}
+                    ? t('recorder.blankJobCard')
+                    : t('recorder.reviewJobCard')}
                 </span>
                 <span className="font-mono text-xs font-bold text-ink truncate">
                   {previewJob.jobNumber}
                 </span>
                 {showSampleJobCard && (
                   <span className="shrink-0 px-2 py-0.5 rounded bg-amber-100 border border-amber-300 text-amber-900 text-[10px] font-bold uppercase tracking-wide">
-                    Sample
+                    {t('recorder.sampleBadge')}
                   </span>
                 )}
               </div>
@@ -423,16 +434,16 @@ export const ReceptionDashboard: React.FC<ReceptionDashboardProps> = ({
                   type="button"
                   onClick={() => handleExportJobCardPdf(previewJob)}
                   className="flex items-center gap-1.5 px-3 py-2 bg-[#800020] hover:bg-[#600018] text-white text-xs font-semibold rounded-xl transition cursor-pointer"
-                  title="Export this job card as a PDF"
+                  title={t('recorder.exportPdfTitle')}
                 >
                   <Download className="w-3.5 h-3.5" />
-                  <span>Export PDF</span>
+                  <span>{t('common.exportPdf')}</span>
                 </button>
                 <button
                   type="button"
                   onClick={closeJobCardPreview}
                   className="p-2 text-ink-muted hover:text-ink hover:bg-sand rounded-xl transition cursor-pointer"
-                  title="Close review"
+                  title={t('recorder.closeReview')}
                 >
                   <X className="w-5 h-5" />
                 </button>
@@ -441,9 +452,9 @@ export const ReceptionDashboard: React.FC<ReceptionDashboardProps> = ({
 
             {showSampleJobCard && (
               <div className="shrink-0 mb-3 px-4 py-2.5 rounded-xl bg-amber-50 border border-amber-300 text-amber-950">
-                <p className="text-xs font-bold">Sample preview - not a real record.</p>
+                <p className="text-xs font-bold">{t('recorder.sampleNotice')}</p>
                 <p className="text-[11px] text-amber-900/80 mt-0.5">
-                  This job card is a demo. It is not saved, not reported, and not counted in Finance.
+                  {t('recorder.sampleNoticeDesc')}
                 </p>
               </div>
             )}
@@ -458,6 +469,12 @@ export const ReceptionDashboard: React.FC<ReceptionDashboardProps> = ({
           </div>
         </div>
       )}
+
+      <InsuranceVoucherModal
+        isOpen={showInsuranceVoucher}
+        jobs={jobs}
+        onClose={() => setShowInsuranceVoucher(false)}
+      />
 
       <PartsRequestModal
         isOpen={!!partsJob}

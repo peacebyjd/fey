@@ -22,10 +22,19 @@ export const CameraCapture: React.FC<CameraCaptureProps> = ({
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const captureInputRef = useRef<HTMLInputElement | null>(null);
 
   const startCamera = async (mode = facingMode) => {
     stopCamera();
     setCameraError(null);
+
+    if (!navigator.mediaDevices?.getUserMedia) {
+      setCameraError(
+        'The live camera is not available in this browser. Use "Take Photo" to open the device camera instead.'
+      );
+      return;
+    }
+
     try {
       const constraints: MediaStreamConstraints = {
         video: {
@@ -37,15 +46,11 @@ export const CameraCapture: React.FC<CameraCaptureProps> = ({
       };
       const stream = await navigator.mediaDevices.getUserMedia(constraints);
       streamRef.current = stream;
-      if (videoRef.current) {
-        videoRef.current.srcObject = stream;
-        videoRef.current.play();
-      }
       setIsCameraActive(true);
     } catch (err: any) {
       console.warn('Camera access unavailable:', err);
       setCameraError(
-        'Tablet camera could not be accessed directly. You can use the photo upload button below to attach vehicle images.'
+        'Camera could not be opened. Allow camera access for this site, or use "Take Photo" to open the device camera.'
       );
       setIsCameraActive(false);
     }
@@ -117,15 +122,29 @@ export const CameraCapture: React.FC<CameraCaptureProps> = ({
       };
       reader.readAsDataURL(file);
     });
-    // Reset file input
-    if (fileInputRef.current) {
-      fileInputRef.current.value = '';
-    }
+    // Reset the file input so the same photo can be picked again
+    e.target.value = '';
   };
 
   const removePhoto = (id: string) => {
     onPhotosChange(photos.filter((p) => p.id !== id));
   };
+
+  // The <video> element only renders once the camera is active, so the stream
+  // has to be attached after mount - attaching it earlier left a black viewfinder.
+  useEffect(() => {
+    if (!isCameraActive) return;
+    const video = videoRef.current;
+    const stream = streamRef.current;
+    if (!video || !stream) return;
+    if (video.srcObject !== stream) {
+      video.srcObject = stream;
+    }
+    const playPromise = video.play();
+    if (playPromise && typeof playPromise.catch === 'function') {
+      playPromise.catch(() => undefined);
+    }
+  }, [isCameraActive]);
 
   useEffect(() => {
     return () => {
@@ -155,6 +174,14 @@ export const CameraCapture: React.FC<CameraCaptureProps> = ({
               </button>
               <button
                 type="button"
+                onClick={() => captureInputRef.current?.click()}
+                className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-ink bg-white border border-line hover:bg-sand/40 rounded-lg transition-colors cursor-pointer"
+              >
+                <Camera className="w-4 h-4" />
+                <span>Take Photo</span>
+              </button>
+              <button
+                type="button"
                 onClick={() => fileInputRef.current?.click()}
                 className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-ink bg-white border border-line hover:bg-sand/40 rounded-lg transition-colors cursor-pointer"
               >
@@ -166,6 +193,14 @@ export const CameraCapture: React.FC<CameraCaptureProps> = ({
                 type="file"
                 accept="image/*"
                 multiple
+                className="hidden"
+                onChange={handleFileUpload}
+              />
+              <input
+                ref={captureInputRef}
+                type="file"
+                accept="image/*"
+                capture="environment"
                 className="hidden"
                 onChange={handleFileUpload}
               />

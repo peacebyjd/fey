@@ -2,6 +2,8 @@ import React, { useState } from 'react';
 import { JobRecord, User } from '../../types';
 import { StorageService } from '../../services/storage';
 import { PdfService } from '../../services/pdfService';
+import { useLanguage } from '../../i18n/LanguageContext';
+import { DocumentShareButton } from '../common/DocumentShareButton';
 import {
   X,
   Download,
@@ -10,6 +12,7 @@ import {
   Wrench,
   History,
   FileSpreadsheet,
+  ShieldCheck,
 } from 'lucide-react';
 
 interface ReportsModalProps {
@@ -24,6 +27,7 @@ export const ReportsModal: React.FC<ReportsModalProps> = ({
   onClose,
   jobs,
 }) => {
+  const { t } = useLanguage();
   const settings = StorageService.getSettings();
   const [selectedJobId, setSelectedJobId] = useState<string>(jobs[0]?.id || '');
   const [downloaded, setDownloaded] = useState<string | null>(null);
@@ -33,55 +37,69 @@ export const ReportsModal: React.FC<ReportsModalProps> = ({
   const currentJob = jobs.find((j) => j.id === selectedJobId) || jobs[0];
 
   const flash = (name: string) => {
-    setDownloaded(`${name} downloaded.`);
+    setDownloaded(`${name} ${t('reports.downloaded')}`);
     setTimeout(() => setDownloaded(null), 3000);
   };
 
   const vehicleDocs = [
     {
       id: 'quotation',
-      name: 'Customer Quotation',
-      desc: 'Price estimate for the customer.',
+      name: t('reports.quotation'),
+      desc: t('reports.quotationDesc'),
       icon: <FileText className="w-4 h-4" />,
       run: () => currentJob && PdfService.generateQuotationPdf(currentJob, settings),
+      share: () => PdfService.generateQuotationPdf(currentJob!, settings, { download: false }),
     },
     {
       id: 'jobcard',
-      name: 'Repair Job Card',
-      desc: 'Full workshop job card.',
+      name: t('reports.jobCard'),
+      desc: t('reports.jobCardDesc'),
       icon: <Wrench className="w-4 h-4" />,
       run: () => currentJob && PdfService.generateRepairJobCardPdf(currentJob, settings),
+      share: () => PdfService.generateRepairJobCardPdf(currentJob!, settings, { download: false }),
     },
     {
       id: 'invoice',
-      name: 'Invoice / Receipt',
-      desc: 'Payment invoice for the customer.',
+      name: t('reports.invoice'),
+      desc: t('reports.invoiceDesc'),
       icon: <Receipt className="w-4 h-4" />,
       run: () => currentJob && PdfService.generateInvoicePdf(currentJob, settings),
+      share: () => PdfService.generateInvoicePdf(currentJob!, settings, { download: false }),
+    },
+    {
+      id: 'insurance',
+      name: t('reports.insuranceVoucher'),
+      desc: t('reports.insuranceVoucherDesc'),
+      icon: <ShieldCheck className="w-4 h-4" />,
+      run: () => currentJob && PdfService.generateInsurancePaymentPdf(currentJob, settings),
+      share: () => PdfService.generateInsurancePaymentPdf(currentJob!, settings, { download: false }),
     },
     {
       id: 'history',
-      name: 'Vehicle History',
-      desc: 'Past repairs for this vehicle.',
+      name: t('reports.vehicleHistory'),
+      desc: t('reports.vehicleHistoryDesc'),
       icon: <History className="w-4 h-4" />,
       run: () => currentJob && PdfService.generateQuotationPdf(currentJob, settings),
+      share: () => PdfService.generateQuotationPdf(currentJob!, settings, { download: false }),
     },
   ];
 
   const allDocs = [
     {
       id: 'daily',
-      name: 'Daily Summary',
-      desc: 'All vehicles in one list.',
+      name: t('reports.dailySummary'),
+      desc: t('reports.dailySummaryDesc'),
       icon: <FileSpreadsheet className="w-4 h-4" />,
       run: () => PdfService.generateDailySummaryPdf(jobs, settings),
+      share: () => PdfService.generateDailySummaryPdf(jobs, settings, { download: false }),
     },
     {
       id: 'financial',
-      name: 'Financial Summary',
-      desc: 'Prices and payments for all jobs.',
+      name: t('reports.financialSummary'),
+      desc: t('reports.financialSummaryDesc'),
       icon: <Receipt className="w-4 h-4" />,
       run: () => PdfService.generateDailySummaryPdf(jobs, settings),
+      share: () => PdfService.generateDailySummaryPdf(jobs, settings, { download: false }),
     },
   ];
 
@@ -96,8 +114,8 @@ export const ReportsModal: React.FC<ReportsModalProps> = ({
         {/* Header */}
         <div className="p-4 sm:p-5 border-b border-line flex items-center justify-between bg-sand/40 rounded-t-2xl">
           <div>
-            <h2 className="text-base sm:text-lg font-bold text-ink">Reports & PDFs</h2>
-            <p className="text-xs text-ink-muted">Download official documents for a vehicle or the whole garage.</p>
+            <h2 className="text-base sm:text-lg font-bold text-ink">{t('reports.title')}</h2>
+            <p className="text-xs text-ink-muted">{t('reports.description')}</p>
           </div>
           <button
             onClick={onClose}
@@ -118,7 +136,7 @@ export const ReportsModal: React.FC<ReportsModalProps> = ({
           {/* Vehicle documents */}
           <div className="space-y-3">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-              <h3 className="text-sm font-bold text-ink">For one vehicle</h3>
+              <h3 className="text-sm font-bold text-ink">{t('reports.oneVehicle')}</h3>
               <select
                 value={currentJob?.id || ''}
                 onChange={(e) => setSelectedJobId(e.target.value)}
@@ -147,15 +165,24 @@ export const ReportsModal: React.FC<ReportsModalProps> = ({
                       <p className="text-[11px] text-ink-muted truncate">{doc.desc}</p>
                     </div>
                   </div>
-                  <button
-                    type="button"
-                    onClick={() => handleRun(doc)}
-                    disabled={!currentJob}
-                    className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-brand hover:bg-brand-hover text-white font-semibold text-xs shrink-0 cursor-pointer disabled:opacity-50"
-                  >
-                    <Download className="w-3.5 h-3.5" />
-                    <span>PDF</span>
-                  </button>
+                  <div className="flex items-center gap-1.5 shrink-0">
+                    {currentJob && (
+                      <DocumentShareButton
+                        title={`${doc.name} — ${currentJob.jobNumber}`}
+                        text={`${doc.name} · ${currentJob.jobNumber} · ${currentJob.plateNumber} · ${currentJob.vehicleMake} ${currentJob.vehicleModel}\n${settings.garageName} · ${settings.phone}`}
+                        getPdf={doc.share}
+                      />
+                    )}
+                    <button
+                      type="button"
+                      onClick={() => handleRun(doc)}
+                      disabled={!currentJob}
+                      className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-brand hover:bg-brand-hover text-white font-semibold text-xs shrink-0 cursor-pointer disabled:opacity-50"
+                    >
+                      <Download className="w-3.5 h-3.5" />
+                      <span>PDF</span>
+                    </button>
+                  </div>
                 </div>
               ))}
             </div>
@@ -163,7 +190,7 @@ export const ReportsModal: React.FC<ReportsModalProps> = ({
 
           {/* All vehicles */}
           <div className="space-y-3">
-            <h3 className="text-sm font-bold text-ink">For all vehicles</h3>
+            <h3 className="text-sm font-bold text-ink">{t('reports.allVehicles')}</h3>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
               {allDocs.map((doc) => (
                 <div
@@ -179,14 +206,21 @@ export const ReportsModal: React.FC<ReportsModalProps> = ({
                       <p className="text-[11px] text-ink-muted truncate">{doc.desc}</p>
                     </div>
                   </div>
-                  <button
-                    type="button"
-                    onClick={() => handleRun(doc)}
-                    className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-brand hover:bg-brand-hover text-white font-semibold text-xs shrink-0 cursor-pointer"
-                  >
-                    <Download className="w-3.5 h-3.5" />
-                    <span>PDF</span>
-                  </button>
+                  <div className="flex items-center gap-1.5 shrink-0">
+                    <DocumentShareButton
+                      title={doc.name}
+                      text={`${doc.name}\n${settings.garageName} · ${settings.phone}`}
+                      getPdf={doc.share}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => handleRun(doc)}
+                      className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-brand hover:bg-brand-hover text-white font-semibold text-xs shrink-0 cursor-pointer"
+                    >
+                      <Download className="w-3.5 h-3.5" />
+                      <span>PDF</span>
+                    </button>
+                  </div>
                 </div>
               ))}
             </div>
@@ -199,7 +233,7 @@ export const ReportsModal: React.FC<ReportsModalProps> = ({
             onClick={onClose}
             className="px-5 py-2 text-xs font-semibold text-ink bg-white border border-line hover:bg-sand/50 rounded-xl cursor-pointer"
           >
-            Close
+            {t('common.close')}
           </button>
         </div>
       </div>

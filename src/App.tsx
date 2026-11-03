@@ -4,8 +4,11 @@
  */
 
 import React, { useEffect, useState } from 'react';
-import { JobRecord, User, UserRole } from './types';
+import { JobRecord, Language, User, UserRole } from './types';
 import { StorageService } from './services/storage';
+import { syncPreferredLanguage } from './services/languageSettings';
+import { LANGUAGE_STORAGE_KEY } from './i18n/translations';
+import { LanguageProvider } from './i18n/LanguageContext';
 import {
   canAccessTab,
   canManagePricing,
@@ -22,9 +25,15 @@ import { ManagerDashboard } from './components/manager/ManagerDashboard';
 import { AdminDashboard } from './components/admin/AdminDashboard';
 import { StoreDashboard } from './components/store/StoreDashboard';
 import { DatasHistoryPage } from './components/archive/DatasHistoryPage';
+import { RepairEstimatePage } from './components/estimate/RepairEstimatePage';
 import { JobDetailModal } from './components/common/JobDetailModal';
 import { FinanceCostModal } from './components/finance/FinanceCostModal';
 import { ReportsModal } from './components/reports/ReportsModal';
+import { SettingsModal } from './components/settings/SettingsModal';
+
+const getStoredLanguage = (): Language => {
+  return localStorage.getItem(LANGUAGE_STORAGE_KEY) === 'en' ? 'en' : 'am';
+};
 
 export default function App() {
   const [currentUser, setCurrentUser] = useState<User | null>(() =>
@@ -32,6 +41,11 @@ export default function App() {
   );
   const [users, setUsers] = useState<User[]>(() => StorageService.getUsers());
   const [jobs, setJobs] = useState<JobRecord[]>(() => StorageService.getJobs());
+  const [language, setLanguage] = useState<Language>(() => {
+    const savedUser = StorageService.getCurrentUser();
+    return savedUser?.preferredLanguage ?? getStoredLanguage();
+  });
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
 
   // Determine initial dashboard tab based on role
   const getDefaultTabForRole = (role: UserRole): string => defaultTabForRole(role);
@@ -91,9 +105,15 @@ export default function App() {
   }, [selectedJobForDetail]);
 
   const handleLogin = (user: User) => {
-    StorageService.setCurrentUser(user);
-    setCurrentUser(user);
-    setActiveTab(getDefaultTabForRole(user.role));
+    const preferred = user.preferredLanguage ?? 'am';
+    const resolved = user.preferredLanguage
+      ? user
+      : StorageService.updateUserLanguage(user.id, preferred) ?? user;
+    StorageService.setCurrentUser(resolved);
+    localStorage.setItem(LANGUAGE_STORAGE_KEY, preferred);
+    setCurrentUser(resolved);
+    setLanguage(preferred);
+    setActiveTab(getDefaultTabForRole(resolved.role));
   };
 
   const handleLogout = () => {
@@ -102,10 +122,27 @@ export default function App() {
   };
 
   const handleSwitchUser = (user: User) => {
-    StorageService.setCurrentUser(user);
-    setCurrentUser(user);
-    setActiveTab(getDefaultTabForRole(user.role));
+    const preferred = user.preferredLanguage ?? 'am';
+    const resolved = user.preferredLanguage
+      ? user
+      : StorageService.updateUserLanguage(user.id, preferred) ?? user;
+    StorageService.setCurrentUser(resolved);
+    localStorage.setItem(LANGUAGE_STORAGE_KEY, preferred);
+    setCurrentUser(resolved);
+    setLanguage(preferred);
+    setActiveTab(getDefaultTabForRole(resolved.role));
   };
+
+  const handleLanguageChange = (next: Language) => {
+    setLanguage(next);
+    localStorage.setItem(LANGUAGE_STORAGE_KEY, next);
+    if (!currentUser) return;
+
+    const updated = StorageService.updateUserLanguage(currentUser.id, next);
+    if (updated) setCurrentUser(updated);
+    void syncPreferredLanguage(currentUser.id, next);
+  };
+
 
   const toggleSidebarCollapsed = () => {
     setIsSidebarCollapsed((prev) => {
@@ -129,7 +166,8 @@ export default function App() {
   }
 
   return (
-    <div className="h-[100dvh] overflow-hidden bg-cream text-ink flex flex-col font-sans">
+    <LanguageProvider language={language} onLanguageChange={handleLanguageChange}>
+    <div className="app-shell h-[100dvh] overflow-hidden bg-cream text-ink flex flex-col font-sans">
       {/* Top Header */}
       <Header
         currentUser={currentUser}
@@ -139,6 +177,7 @@ export default function App() {
         activeTab={activeTab}
         setActiveTab={handleNavigate}
         onOpenReports={() => setIsReportsOpen(true)}
+
         onToggleSidebar={() => setIsSidebarOpenMobile(!isSidebarOpenMobile)}
         jobs={jobs}
         onOpenJob={(job) => setSelectedJobForDetail(job)}
@@ -153,12 +192,13 @@ export default function App() {
           isOpenMobile={isSidebarOpenMobile}
           onCloseMobile={() => setIsSidebarOpenMobile(false)}
           onOpenReports={() => setIsReportsOpen(true)}
+          onOpenSettings={() => setIsSettingsOpen(true)}
           isCollapsed={isSidebarCollapsed}
           onToggleCollapse={toggleSidebarCollapsed}
         />
 
         {/* Main Content Viewport */}
-        <main className="flex-1 smooth-scroll overflow-y-auto w-full">
+        <main className="app-main flex-1 smooth-scroll overflow-y-auto w-full">
           <div className="p-3 sm:p-5 md:p-6 max-w-7xl mx-auto w-full pb-24 md:pb-6">
           {activeTab === 'reception' && (
             <ReceptionDashboard
@@ -202,6 +242,8 @@ export default function App() {
               onBackToManager={() => setActiveTab('manager')}
             />
           )}
+
+          {activeTab === 'estimate' && <RepairEstimatePage currentUser={currentUser} />}
 
           {activeTab === 'admin' && (
             <AdminDashboard
@@ -261,6 +303,13 @@ export default function App() {
         jobs={jobs}
         currentUser={currentUser}
       />
+
+      <SettingsModal
+        isOpen={isSettingsOpen}
+        onClose={() => setIsSettingsOpen(false)}
+        currentUser={currentUser}
+      />
     </div>
+    </LanguageProvider>
   );
 }

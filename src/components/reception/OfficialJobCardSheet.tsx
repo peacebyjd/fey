@@ -3,6 +3,9 @@ import { JobRecord } from '../../types';
 import { JOB_CARD_SECTIONS, CONDITION_LEGEND } from './jobCardCheckpoints';
 import { Printer, Download, Car, Shield, Phone, FileText, Check, X, AlertCircle } from 'lucide-react';
 import { BrandMark } from '../common/BrandMark';
+import { DocumentShareButton } from '../common/DocumentShareButton';
+import { PdfService } from '../../services/pdfService';
+import { StorageService } from '../../services/storage';
 
 interface OfficialJobCardSheetProps {
   job: JobRecord;
@@ -54,15 +57,24 @@ export const OfficialJobCardSheet: React.FC<OfficialJobCardSheetProps> = ({
               <span>Print</span>
             </button>
             {onExportPdf && (
-              <button
-                type="button"
-                onClick={onExportPdf}
-                className="flex items-center gap-1.5 px-3 py-2 bg-[#800020] hover:bg-[#600018] text-white text-xs font-semibold rounded-xl transition cursor-pointer"
-                title="Export this job card as a PDF"
-              >
-                <Download className="w-3.5 h-3.5" />
-                <span>Export PDF</span>
-              </button>
+              <>
+                <DocumentShareButton
+                  title={`Official Job Card — ${job.jobNumber}`}
+                  text={`Official Job Card · ${job.jobNumber} · ${job.plateNumber} · ${job.vehicleMake} ${job.vehicleModel}\n${StorageService.getSettings().garageName}`}
+                  getPdf={() =>
+                    PdfService.generateRepairJobCardPdf(job, StorageService.getSettings(), { download: false })
+                  }
+                />
+                <button
+                  type="button"
+                  onClick={onExportPdf}
+                  className="flex items-center gap-1.5 px-3 py-2 bg-[#800020] hover:bg-[#600018] text-white text-xs font-semibold rounded-xl transition cursor-pointer"
+                  title="Export this job card as a PDF"
+                >
+                  <Download className="w-3.5 h-3.5" />
+                  <span>Export PDF</span>
+                </button>
+              </>
             )}
             {onClose && (
               <button

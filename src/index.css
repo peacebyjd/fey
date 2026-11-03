@@ -188,6 +188,44 @@ body {
     margin: 1.2cm;
     size: A4 portrait;
   }
+
+  /* Full-page documents (repair estimate) must not be clipped by the shell */
+  html,
+  body,
+  #root,
+  .app-shell,
+  .app-main {
+    height: auto !important;
+    overflow: visible !important;
+  }
+
+  .app-shell {
+    display: block !important;
+  }
+
+  .app-shell > div {
+    height: auto !important;
+    overflow: visible !important;
+  }
+
+  .app-main > div {
+    max-width: none !important;
+    padding: 0 !important;
+  }
+
+  .estimate-sheet {
+    max-width: none !important;
+    margin: 0 !important;
+    border: 0 !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+    overflow: visible !important;
+  }
+
+  .estimate-band {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
 }
 
 @media screen {

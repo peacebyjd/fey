@@ -1342,3 +1342,198 @@ export const DEFAULT_PARTS_REQUESTS: PartsRequest[] = [
     handledAt: '2026-08-20 10:15',
   },
 ];
+
+interface WaitingSampleConfig {
+  id: string;
+  jobNumber: string;
+  hoursAgo: number;
+  customerName: string;
+  customerPhone: string;
+  vehicleMake: string;
+  vehicleModel: string;
+  plateNumber: string;
+  vin: string;
+  color: string;
+  mileage: number;
+  problem: string;
+  repair: string;
+  repairItem: string;
+  notes: string;
+  priority: JobRecord['priority'];
+  price: number;
+}
+
+const makeWaitingSample = (config: WaitingSampleConfig): JobRecord => {
+  const received = new Date(Date.now() - config.hoursAgo * 60 * 60 * 1000);
+  const iso = received.toISOString();
+  const display = iso.substring(0, 16).replace('T', ' ');
+  const day = display.substring(0, 10);
+  return {
+    id: config.id,
+    jobNumber: config.jobNumber,
+    status: 'Ready to Start',
+    createdAt: iso,
+    createdBy: 'Selamawit Kebede',
+    updatedAt: iso,
+    customerName: config.customerName,
+    customerPhone: config.customerPhone,
+    vehicleMake: config.vehicleMake,
+    vehicleModel: config.vehicleModel,
+    plateNumber: config.plateNumber,
+    vin: config.vin,
+    mileage: config.mileage,
+    color: config.color,
+    receivedAt: display,
+    expectedDeliveryDate: day,
+    customerProblem: config.problem,
+    repairDescription: config.repair,
+    initialInspectionNotes: config.notes,
+    sparePartsRequiredNotes: '',
+    vehicleConditionOnArrival: 'No visible body damage on arrival.',
+    hasInsurance: false,
+    photos: [],
+    assignedTeamId: null,
+    assignedTeamName: null,
+    assignedMechanicId: null,
+    assignedMechanicName: null,
+    assignedMechanicPhone: null,
+    priority: config.priority,
+    smsDispatches: [],
+    laborCost: 0,
+    sparePartsCost: 0,
+    additionalServiceCost: 0,
+    otherCharges: 0,
+    discount: 0,
+    taxRate: 0,
+    totalEstimatedCost: config.price,
+    finalApprovedPrice: config.price,
+    actualFinalCost: config.price,
+    quotationStatus: 'Approved',
+    quotationDate: day,
+    quotationValidityDays: 14,
+    spareParts: [],
+    priceItems: [{ id: `price-${config.id}`, name: config.repairItem, amount: config.price, action: 'Repair' }],
+    payments: [],
+    paymentStatus: 'Unpaid',
+    checklist: [],
+    auditTrail: [],
+  };
+};
+
+/** Six fresh unassigned jobs so the manager board has a real waiting list to practise on. */
+export const WAITING_SAMPLE_JOBS: JobRecord[] = [
+  makeWaitingSample({
+    id: 'job-waiting-01',
+    jobNumber: 'FEY-2026-011',
+    hoursAgo: 2,
+    customerName: 'Meron Haile',
+    customerPhone: '+251 911 334 221',
+    vehicleMake: 'Toyota',
+    vehicleModel: 'Vitz 1.3L',
+    plateNumber: 'AA-3-K1120',
+    vin: 'NSP130-7091823',
+    color: 'Wine Red',
+    mileage: 68400,
+    problem: 'Front brakes squeal loudly and the pedal feels soft when stopping.',
+    repair: 'Replace front brake pads and machine the front discs; bleed the brake system.',
+    repairItem: 'Brake Pad Set',
+    notes: 'Front pads at 2 mm. Brake fluid dark and overdue.',
+    priority: 'High',
+    price: 8500,
+  }),
+  makeWaitingSample({
+    id: 'job-waiting-02',
+    jobNumber: 'FEY-2026-012',
+    hoursAgo: 5,
+    customerName: 'Yonas Alemu',
+    customerPhone: '+251 912 771 903',
+    vehicleMake: 'Suzuki',
+    vehicleModel: 'Dzire 1.2L',
+    plateNumber: 'AA-2-M4471',
+    vin: 'MA3FHEB1S00218442',
+    color: 'Pearl White',
+    mileage: 41200,
+    problem: 'Air conditioner blows warm air even on the coldest setting.',
+    repair: 'Leak test the A/C system, recharge refrigerant and replace the cabin filter.',
+    repairItem: 'A/C Gas Recharge',
+    notes: 'Compressor engages; low-side pressure is low.',
+    priority: 'Medium',
+    price: 6200,
+  }),
+  makeWaitingSample({
+    id: 'job-waiting-03',
+    jobNumber: 'FEY-2026-013',
+    hoursAgo: 9,
+    customerName: 'Genet Assefa',
+    customerPhone: '+251 913 208 774',
+    vehicleMake: 'Hyundai',
+    vehicleModel: 'Elantra 1.8L',
+    plateNumber: 'AA-3-N8834',
+    vin: 'KMHD35LH8FU091273',
+    color: 'Black',
+    mileage: 96500,
+    problem: 'Temperature gauge climbs into the red in traffic; coolant smell after parking.',
+    repair: 'Pressure test the cooling system, replace the thermostat and flush the radiator.',
+    repairItem: 'Cooling System Service',
+    notes: 'Coolant level low. Upper hose feels soft; suspect thermostat stuck closed.',
+    priority: 'Urgent',
+    price: 11400,
+  }),
+  makeWaitingSample({
+    id: 'job-waiting-04',
+    jobNumber: 'FEY-2026-014',
+    hoursAgo: 18,
+    customerName: 'Dawit Mekonnen',
+    customerPhone: '+251 911 908 442',
+    vehicleMake: 'Toyota',
+    vehicleModel: 'Land Cruiser Prado TX-L',
+    plateNumber: 'ET-3-P3321',
+    vin: 'JTEBH9FJX0K192844',
+    color: 'Champagne',
+    mileage: 188700,
+    problem: 'Clunking noise from the front end over speed bumps and rough roads.',
+    repair: 'Replace front shock absorbers and stabiliser link bushes; perform wheel alignment.',
+    repairItem: 'Suspension Repair',
+    notes: 'Front left shock leaking oil. Stabiliser links have play.',
+    priority: 'Medium',
+    price: 24800,
+  }),
+  makeWaitingSample({
+    id: 'job-waiting-05',
+    jobNumber: 'FEY-2026-015',
+    hoursAgo: 26,
+    customerName: 'Selam Tesfaye',
+    customerPhone: '+251 914 552 610',
+    vehicleMake: 'Ford',
+    vehicleModel: 'Ranger 2.2 TDCi',
+    plateNumber: 'OR-2-R7765',
+    vin: 'MNCUMFF50EW918273',
+    color: 'Arctic White',
+    mileage: 121300,
+    problem: 'Clutch slips under load and the pedal engages very high.',
+    repair: 'Replace the clutch kit, release bearing and resurface the flywheel.',
+    repairItem: 'Clutch Replacement',
+    notes: 'Clutch smell reported after towing. Pedal free play almost gone.',
+    priority: 'High',
+    price: 32500,
+  }),
+  makeWaitingSample({
+    id: 'job-waiting-06',
+    jobNumber: 'FEY-2026-016',
+    hoursAgo: 34,
+    customerName: 'Hanna Girma',
+    customerPhone: '+251 911 447 358',
+    vehicleMake: 'Volkswagen',
+    vehicleModel: 'Polo 1.6 MPI',
+    plateNumber: 'AA-2-T2098',
+    vin: 'WVWZZZ6RZBY118320',
+    color: 'Deep Blue',
+    mileage: 73800,
+    problem: 'Battery dies overnight and the dashboard warning lights flicker while driving.',
+    repair: 'Test the alternator and charging circuit, replace the battery and clean the ground points.',
+    repairItem: 'Battery',
+    notes: 'Charging voltage 11.8 V at idle; battery is 4 years old.',
+    priority: 'Low',
+    price: 9750,
+  }),
+];

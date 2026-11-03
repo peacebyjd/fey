@@ -1,5 +1,6 @@
 import React from 'react';
 import { JobStatus, Priority } from '../../types';
+import { useLanguage } from '../../i18n/LanguageContext';
 import {
   Clock,
   CheckCircle2,
@@ -17,7 +18,21 @@ interface StatusBadgeProps {
   showIcon?: boolean;
 }
 
+const STATUS_KEYS: Record<JobStatus, string> = {
+  Received: 'status.received',
+  'Awaiting Inspection': 'status.awaitingInspection',
+  'Awaiting Quotation Approval': 'status.awaitingQuotation',
+  'Awaiting Spare Parts': 'status.awaitingParts',
+  'Ready to Start': 'status.readyToStart',
+  'In Progress': 'status.inProgress',
+  'Quality Check': 'status.qualityCheck',
+  'Ready for Delivery': 'status.readyForDelivery',
+  Completed: 'status.completed',
+  Cancelled: 'status.cancelled',
+};
+
 export const StatusBadge: React.FC<StatusBadgeProps> = ({ status, showIcon = true }) => {
+  const { t } = useLanguage();
   const getStatusConfig = () => {
     switch (status) {
       case 'Received':
@@ -85,7 +100,7 @@ export const StatusBadge: React.FC<StatusBadgeProps> = ({ status, showIcon = tru
       className={`inline-flex items-center gap-1.5 px-2.5 py-1 text-xs rounded-md border font-medium whitespace-nowrap shrink-0 ${color}`}
     >
       {showIcon && icon}
-      <span>{status}</span>
+      <span>{t(STATUS_KEYS[status] ?? status)}</span>
     </span>
   );
 };
@@ -95,31 +110,32 @@ interface PriorityBadgeProps {
 }
 
 export const PriorityBadge: React.FC<PriorityBadgeProps> = ({ priority }) => {
+  const { t } = useLanguage();
   switch (priority) {
     case 'Urgent':
       return (
         <span className="inline-flex items-center gap-1 px-2 py-0.5 text-[11px] font-semibold text-brand bg-coral/10 border border-coral/30 rounded-md">
           <AlertCircle className="w-3 h-3 text-coral" />
-          <span>Urgent</span>
+          <span>{t('priority.urgent')}</span>
         </span>
       );
     case 'High':
       return (
         <span className="inline-flex items-center gap-1 px-2 py-0.5 text-[11px] font-medium text-amber-800 bg-amber-50 border border-amber-200 rounded-md">
-          <span>High Priority</span>
+          <span>{t('priority.high')}</span>
         </span>
       );
     case 'Medium':
       return (
         <span className="inline-flex items-center gap-1 px-2 py-0.5 text-[11px] font-medium text-blue-800 bg-blue-50 border border-blue-200 rounded-md">
-          <span>Medium</span>
+          <span>{t('priority.medium')}</span>
         </span>
       );
     case 'Low':
     default:
       return (
         <span className="inline-flex items-center gap-1 px-2 py-0.5 text-[11px] font-medium text-ink-muted bg-sand/50 border border-line rounded-md">
-          <span>Low</span>
+          <span>{t('priority.low')}</span>
         </span>
       );
   }

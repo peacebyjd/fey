@@ -13,6 +13,7 @@ import {
   Search,
   X,
 } from 'lucide-react';
+import { useLanguage } from '../../i18n/LanguageContext';
 
 interface HeaderProps {
   currentUser: User;
@@ -39,6 +40,7 @@ export const Header: React.FC<HeaderProps> = ({
   jobs,
   onOpenJob,
 }) => {
+  const { t } = useLanguage();
   const [showNotifications, setShowNotifications] = useState(false);
   const [showUserSwitcher, setShowUserSwitcher] = useState(false);
   const [query, setQuery] = useState('');
@@ -83,15 +85,15 @@ export const Header: React.FC<HeaderProps> = ({
   const getRoleDisplayName = (role: string) => {
     switch (role) {
       case 'admin':
-        return 'Administrator';
+        return t('header.roleAdmin');
       case 'reception':
-        return 'Recorder';
+        return t('header.roleRecorder');
       case 'finance':
-        return 'Finance Officer';
+        return t('header.roleFinance');
       case 'manager':
-        return 'Workshop Manager';
+        return t('header.roleManager');
       case 'storekeeper':
-        return 'Store Keeper';
+        return t('header.roleStorekeeper');
       default:
         return role;
     }
@@ -136,7 +138,7 @@ export const Header: React.FC<HeaderProps> = ({
             onChange={(e) => setQuery(e.target.value)}
             onFocus={() => setSearchFocused(true)}
             onBlur={() => setTimeout(() => setSearchFocused(false), 150)}
-            placeholder="Search jobs or plates"
+            placeholder={t('header.searchPlaceholder')}
             className="w-full pl-10 pr-9 py-2 text-sm bg-cream border border-line rounded-xl text-ink placeholder:text-ink-muted/60 focus:bg-white focus:outline-none focus:ring-2 focus:ring-brand/25 focus:border-brand transition"
           />
           {query && (
@@ -177,7 +179,7 @@ export const Header: React.FC<HeaderProps> = ({
               ))
             ) : (
               <div className="px-3 py-4 text-center text-xs text-ink-muted">
-                No matching jobs found
+                {t('header.noResults')}
               </div>
             )}
           </div>
@@ -193,7 +195,7 @@ export const Header: React.FC<HeaderProps> = ({
               type="button"
               onClick={() => setShowUserSwitcher(!showUserSwitcher)}
               className="flex items-center gap-1.5 px-2.5 py-2 text-xs font-medium text-ink bg-cream hover:bg-sand/70 rounded-xl transition cursor-pointer border border-line"
-              title="Switch staff account (Admin only)"
+              title={t('header.switchStaff')}
             >
               <UserCheck className="w-3.5 h-3.5 text-brand" />
               <span className="hidden sm:inline font-semibold">{currentUser.name}</span>
@@ -205,8 +207,8 @@ export const Header: React.FC<HeaderProps> = ({
             {showUserSwitcher && (
               <div className="absolute right-0 mt-2 w-72 bg-white rounded-xl shadow-xl border border-line py-2 z-50">
                 <div className="px-3 py-1.5 border-b border-line">
-                  <p className="text-xs font-semibold text-ink">Switch Staff Account</p>
-                  <p className="text-[11px] text-ink-muted">Admin only — test dashboard permissions</p>
+                  <p className="text-xs font-semibold text-ink">{t('header.switchStaff')}</p>
+                  <p className="text-[11px] text-ink-muted">{t('header.adminOnly')}</p>
                 </div>
                 <div className="max-h-64 overflow-y-auto py-1 smooth-scroll">
                   {allUsers.map((u) => (
@@ -249,7 +251,7 @@ export const Header: React.FC<HeaderProps> = ({
             type="button"
             onClick={() => setShowNotifications(!showNotifications)}
             className="relative touch-target flex items-center justify-center text-ink-muted hover:text-ink hover:bg-sand/60 rounded-xl transition cursor-pointer"
-            title="In-app Notifications"
+            title={t('header.notifications')}
           >
             <Bell className="w-5 h-5" />
             {unreadCount > 0 && (
@@ -263,15 +265,17 @@ export const Header: React.FC<HeaderProps> = ({
             <div className="absolute right-0 mt-2 w-80 sm:w-96 bg-white rounded-xl shadow-xl border border-line py-2 z-50">
               <div className="px-4 py-2 border-b border-line flex items-center justify-between">
                 <div>
-                  <h4 className="text-xs font-bold text-ink">Notifications</h4>
-                  <p className="text-[11px] text-ink-muted">{unreadCount} unread alerts</p>
+                  <h4 className="text-xs font-bold text-ink">{t('header.notifications')}</h4>
+                  <p className="text-[11px] text-ink-muted">
+                    {t('header.unreadAlerts', { count: unreadCount })}
+                  </p>
                 </div>
                 {unreadCount > 0 && (
                   <button
                     onClick={markAllRead}
                     className="text-[11px] font-medium text-brand hover:underline cursor-pointer"
                   >
-                    Mark all read
+                    {t('header.markAllRead')}
                   </button>
                 )}
               </div>
@@ -296,7 +300,7 @@ export const Header: React.FC<HeaderProps> = ({
                   ))
                 ) : (
                   <div className="p-4 text-center text-xs text-ink-muted">
-                    No notifications right now
+                    {t('header.noNotifications')}
                   </div>
                 )}
               </div>
@@ -310,10 +314,10 @@ export const Header: React.FC<HeaderProps> = ({
             type="button"
             onClick={onOpenReports}
             className="hidden xl:flex items-center gap-1.5 px-3 py-2 text-xs font-semibold text-white bg-brand hover:bg-brand-hover rounded-xl transition cursor-pointer shadow-soft"
-            title="Open PDF & Reports Center"
+            title={t('header.reports')}
           >
             <FileSpreadsheet className="w-3.5 h-3.5" />
-            <span>Reports</span>
+            <span>{t('header.reports')}</span>
           </button>
         )}
 
@@ -327,10 +331,10 @@ export const Header: React.FC<HeaderProps> = ({
                 ? 'bg-brand text-white border-brand'
                 : 'text-ink bg-cream hover:bg-sand/70 border-line'
             }`}
-            title="Store & Tool Allocation"
+            title={t('header.store')}
           >
             <Package className="w-3.5 h-3.5" />
-            <span>Store</span>
+            <span>{t('header.store')}</span>
           </button>
         )}
 
@@ -339,10 +343,10 @@ export const Header: React.FC<HeaderProps> = ({
           type="button"
           onClick={onLogout}
           className="touch-target flex items-center gap-1.5 px-2.5 text-xs font-medium text-ink-muted hover:text-white hover:bg-coral border border-line rounded-xl transition cursor-pointer"
-          title="Sign out of garage system"
+          title={t('header.signOut')}
         >
           <LogOut className="w-4 h-4" />
-          <span className="hidden sm:inline">Sign Out</span>
+          <span className="hidden sm:inline">{t('header.signOut')}</span>
         </button>
       </div>
     </header>

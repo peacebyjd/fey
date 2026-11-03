@@ -5,13 +5,16 @@ import {
   Car,
   Receipt,
   Kanban,
+  Calculator,
   Users,
   FileSpreadsheet,
   Database,
   Package,
+  Settings,
   ChevronLeft,
   ChevronRight,
 } from 'lucide-react';
+import { useLanguage } from '../../i18n/LanguageContext';
 
 interface SidebarProps {
   currentUser: User;
@@ -20,6 +23,7 @@ interface SidebarProps {
   isOpenMobile: boolean;
   onCloseMobile: () => void;
   onOpenReports: () => void;
+  onOpenSettings: () => void;
   isCollapsed: boolean;
   onToggleCollapse: () => void;
 }
@@ -31,9 +35,11 @@ export const Sidebar: React.FC<SidebarProps> = ({
   isOpenMobile,
   onCloseMobile,
   onOpenReports,
+  onOpenSettings,
   isCollapsed,
   onToggleCollapse,
 }) => {
+  const { t } = useLanguage();
   const isAllowed = (roles: string[]) => {
     return roles.includes(currentUser.role) || currentUser.role === 'admin';
   };
@@ -41,38 +47,45 @@ export const Sidebar: React.FC<SidebarProps> = ({
   const navItems = [
     {
       id: 'manager',
-      label: 'Task Board',
+      label: t('nav.taskBoard'),
       icon: <Kanban className="w-4 h-4 shrink-0" />,
       allowed: isAllowed(['manager']),
-      subtitle: 'Give jobs to teams',
+      subtitle: t('nav.taskBoardSub'),
     },
     {
       id: 'finance',
-      label: 'Finance',
+      label: t('nav.finance'),
       icon: <Receipt className="w-4 h-4 shrink-0" />,
       allowed: isAllowed(['finance']),
-      subtitle: 'Prices & payments',
+      subtitle: t('nav.financeSub'),
     },
     {
       id: 'store',
-      label: 'Store',
+      label: t('nav.store'),
       icon: <Package className="w-4 h-4 shrink-0" />,
       allowed: isAllowed(['storekeeper']),
-      subtitle: 'Tools in & out',
+      subtitle: t('nav.storeSub'),
     },
     {
       id: 'datas_history',
-      label: 'Data & Archive',
+      label: t('nav.dataArchive'),
       icon: <Database className="w-4 h-4 shrink-0" />,
       allowed: isAllowed(['manager', 'admin', 'finance']),
-      subtitle: 'Past jobs & files',
+      subtitle: t('nav.dataArchiveSub'),
     },
     {
       id: 'reception',
-      label: 'Recorder & Intake',
+      label: t('nav.recorder'),
       icon: <Car className="w-4 h-4 shrink-0" />,
       allowed: isAllowed(['reception']),
-      subtitle: 'Log vehicles & photos',
+      subtitle: t('nav.recorderSub'),
+    },
+    {
+      id: 'estimate',
+      label: t('nav.estimate'),
+      icon: <Calculator className="w-4 h-4 shrink-0" />,
+      allowed: isAllowed(['reception', 'finance', 'manager']),
+      subtitle: t('nav.estimateSub'),
     },
   ];
 
@@ -98,8 +111,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
           <div className={`hidden md:flex ${isCollapsed ? 'justify-center' : 'justify-end'} pb-2`}>
             <button
               onClick={onToggleCollapse}
-              title={isCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
-              aria-label={isCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+              title={isCollapsed ? t('sidebar.expand') : t('sidebar.collapse')}
+              aria-label={isCollapsed ? t('sidebar.expand') : t('sidebar.collapse')}
               className="p-1.5 rounded-lg text-ink-muted hover:text-ink hover:bg-sand transition cursor-pointer"
             >
               {isCollapsed ? <ChevronRight className="w-4 h-4" /> : <ChevronLeft className="w-4 h-4" />}
@@ -108,19 +121,19 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
           {/* Tablet view header */}
           <div className="md:hidden flex items-center justify-between pb-4 mb-4 border-b border-line">
-            <span className="font-bold text-ink">Navigation Menu</span>
+            <span className="font-bold text-ink">{t('sidebar.navigation')}</span>
             <button
               onClick={onCloseMobile}
               className="text-xs text-ink-muted hover:text-ink p-1 cursor-pointer"
             >
-              Close
+              {t('sidebar.close')}
             </button>
           </div>
 
           {!isCollapsed && (
             <div className="mb-3 px-2">
               <p className="text-[11px] font-semibold text-ink-muted/70 uppercase tracking-wider">
-                GARAGE WORKFLOW
+                {t('nav.workflow')}
               </p>
             </div>
           )}
@@ -171,7 +184,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
               {!isCollapsed && (
                 <div className="mt-6 mb-2 px-2">
                   <p className="text-[11px] font-semibold text-ink-muted/70 uppercase tracking-wider">
-                    DOCUMENTS & AUDIT
+                    {t('nav.documentsAudit')}
                   </p>
                 </div>
               )}
@@ -179,7 +192,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
               <div className={`${isCollapsed ? 'mt-3' : 'mt-0'} space-y-1`}>
                 {canViewReports(currentUser.role) && (
                   <button
-                    title={isCollapsed ? 'PDF Documents & Reports' : undefined}
+                    title={isCollapsed ? t('nav.pdfReports') : undefined}
                     onClick={() => {
                       onOpenReports();
                       onCloseMobile();
@@ -189,13 +202,13 @@ export const Sidebar: React.FC<SidebarProps> = ({
                     }`}
                   >
                     <FileSpreadsheet className="w-4 h-4 text-ink-muted shrink-0" />
-                    <span className={isCollapsed ? 'md:hidden' : ''}>PDF Documents & Reports</span>
+                    <span className={isCollapsed ? 'md:hidden' : ''}>{t('nav.pdfReports')}</span>
                   </button>
                 )}
 
                 {isAllowed(['admin']) && (
                   <button
-                    title={isCollapsed ? 'Admin' : undefined}
+                    title={isCollapsed ? t('nav.admin') : undefined}
                     onClick={() => {
                       setActiveTab('admin');
                       onCloseMobile();
@@ -209,12 +222,28 @@ export const Sidebar: React.FC<SidebarProps> = ({
                     }`}
                   >
                     <Users className="w-4 h-4 text-ink-muted shrink-0" />
-                    <span className={isCollapsed ? 'md:hidden' : ''}>Admin</span>
+                    <span className={isCollapsed ? 'md:hidden' : ''}>{t('nav.admin')}</span>
                   </button>
                 )}
               </div>
             </>
           )}
+
+          <div className={`${isCollapsed ? 'mt-3' : 'mt-6'} border-t border-line pt-2`}>
+            <button
+              title={isCollapsed ? t('nav.settings') : undefined}
+              onClick={() => {
+                onOpenSettings();
+                onCloseMobile();
+              }}
+              className={`w-full flex rounded-lg text-left text-xs font-medium text-ink hover:bg-sand/50 hover:text-ink transition-colors cursor-pointer ${
+                isCollapsed ? 'md:justify-center md:px-0 items-center gap-3 p-2.5' : 'items-center gap-3 p-2.5'
+              }`}
+            >
+              <Settings className="w-4 h-4 text-ink-muted shrink-0" />
+              <span className={isCollapsed ? 'md:hidden' : ''}>{t('nav.settings')}</span>
+            </button>
+          </div>
         </div>
 
       </aside>

@@ -12,6 +12,7 @@ import {
   PriceItem,
   SmsDispatchRecord,
   User,
+  Language,
   WorkshopTool,
   ToolCategory,
   ToolCheckoutRecord,
@@ -20,7 +21,7 @@ import {
   SalaryWeek,
   WorkerCategory,
 } from '../types';
-import { DEFAULT_PARTS_REQUESTS, SAMPLE_2_MONTHS_JOBS } from './sampleData';
+import { DEFAULT_PARTS_REQUESTS, SAMPLE_2_MONTHS_JOBS, WAITING_SAMPLE_JOBS } from './sampleData';
 import {
   DEFAULT_TOOLS,
   DEFAULT_TOOL_CHECKOUTS,
@@ -38,6 +39,7 @@ import {
 
 const STORAGE_KEYS = {
   JOBS: 'feyamet_garage_jobs_v11',
+  WAITING_SAMPLES: 'feyamet_waiting_samples_v1',
   USERS: 'feyamet_garage_users_v3',
   TEAMS: 'feyamet_garage_teams_v2',
   MECHANIC_DIRECTORY: 'feyamet_mechanic_dir_v2',
@@ -223,19 +225,36 @@ export class StorageService {
   static getJobs(): JobRecord[] {
     const raw = localStorage.getItem(STORAGE_KEYS.JOBS);
     if (!raw) {
-      localStorage.setItem(STORAGE_KEYS.JOBS, JSON.stringify(DEFAULT_JOBS));
-      return DEFAULT_JOBS;
+      const seeded = [...DEFAULT_JOBS, ...WAITING_SAMPLE_JOBS];
+      localStorage.setItem(STORAGE_KEYS.JOBS, JSON.stringify(seeded));
+      localStorage.setItem(STORAGE_KEYS.WAITING_SAMPLES, 'added');
+      return seeded;
     }
     try {
       const parsed = JSON.parse(raw);
       if (Array.isArray(parsed) && parsed.length >= 6) {
-        return parsed;
+        return this.withWaitingSamples(parsed as JobRecord[]);
       }
-      localStorage.setItem(STORAGE_KEYS.JOBS, JSON.stringify(DEFAULT_JOBS));
-      return DEFAULT_JOBS;
+      const seeded = [...DEFAULT_JOBS, ...WAITING_SAMPLE_JOBS];
+      localStorage.setItem(STORAGE_KEYS.JOBS, JSON.stringify(seeded));
+      localStorage.setItem(STORAGE_KEYS.WAITING_SAMPLES, 'added');
+      return seeded;
     } catch {
       return DEFAULT_JOBS;
     }
+  }
+
+  /** Adds the waiting-list demo jobs once to existing installs, without touching saved records. */
+  private static withWaitingSamples(jobs: JobRecord[]): JobRecord[] {
+    if (localStorage.getItem(STORAGE_KEYS.WAITING_SAMPLES)) return jobs;
+    const existingIds = new Set(jobs.map((job) => job.id));
+    const missing = WAITING_SAMPLE_JOBS.filter((job) => !existingIds.has(job.id));
+    const merged = missing.length > 0 ? [...jobs, ...missing] : jobs;
+    if (missing.length > 0) {
+      localStorage.setItem(STORAGE_KEYS.JOBS, JSON.stringify(merged));
+    }
+    localStorage.setItem(STORAGE_KEYS.WAITING_SAMPLES, 'added');
+    return merged;
   }
 
   static saveJobs(jobs: JobRecord[]) {
@@ -442,6 +461,21 @@ export class StorageService {
   static saveUsers(users: User[]) {
     localStorage.setItem(STORAGE_KEYS.USERS, JSON.stringify(users));
     this.notify();
+  }
+
+  static updateUserLanguage(userId: string, language: Language): User | null {
+    const users = this.getUsers();
+    const index = users.findIndex((user) => user.id === userId);
+    if (index === -1) return null;
+
+    const updated = { ...users[index], preferredLanguage: language };
+    const nextUsers = [...users];
+    nextUsers[index] = updated;
+    this.saveUsers(nextUsers);
+
+    const current = this.getCurrentUser();
+    if (current?.id === userId) this.setCurrentUser(updated);
+    return updated;
   }
 
   static getMechanics(): MechanicStaff[] {

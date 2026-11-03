@@ -2,7 +2,9 @@ import React, { useState } from 'react';
 import { JobRecord, User } from '../../types';
 import { StorageService } from '../../services/storage';
 import { PdfService } from '../../services/pdfService';
+import { DocumentShareButton } from '../common/DocumentShareButton';
 import { StatusBadge } from '../common/StatusBadge';
+import { useLanguage } from '../../i18n/LanguageContext';
 import {
   Search,
   Download,
@@ -28,6 +30,7 @@ export const DatasHistoryPage: React.FC<DatasHistoryPageProps> = ({
   onRefreshJobs,
   onBackToManager,
 }) => {
+  const { t } = useLanguage();
   const settings = StorageService.getSettings();
   const [searchQuery, setSearchQuery] = useState('');
   const [category, setCategory] = useState<'all' | 'finished' | 'waiting'>('all');
@@ -133,20 +136,28 @@ export const DatasHistoryPage: React.FC<DatasHistoryPageProps> = ({
   return (
     <div className="space-y-5">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
         <div>
-          <h1 className="text-xl sm:text-2xl font-bold text-ink">Data & Archive</h1>
-          <p className="text-sm text-ink-muted">All past and finished jobs.</p>
+          <h1 className="text-xl sm:text-2xl font-bold text-ink">{t('data.title')}</h1>
+          <p className="text-xs sm:text-sm text-ink-muted">{t('data.description')}</p>
         </div>
-        {onBackToManager && (
-          <button
-            type="button"
-            onClick={onBackToManager}
-            className="self-start sm:self-auto px-3.5 py-2 rounded-xl bg-sand/60 hover:bg-sand text-ink font-semibold text-xs border border-line cursor-pointer"
-          >
-            Back to Board
-          </button>
-        )}
+        <div className="flex flex-wrap items-center gap-2 self-start sm:self-auto">
+          <span className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-white border border-line text-[11px]">
+            <span className="text-ink-muted font-medium">{t('data.revenue')}</span>
+            <b className="font-mono text-ink tabular-nums">
+              {totalRevenue.toLocaleString()} {settings.currency}
+            </b>
+          </span>
+          {onBackToManager && (
+            <button
+              type="button"
+              onClick={onBackToManager}
+              className="px-3.5 py-2 rounded-xl bg-sand/60 hover:bg-sand text-ink font-semibold text-xs border border-line cursor-pointer"
+            >
+              {t('data.backToBoard')}
+            </button>
+          )}
+        </div>
       </div>
 
       {toastMessage && (
@@ -156,35 +167,13 @@ export const DatasHistoryPage: React.FC<DatasHistoryPageProps> = ({
         </div>
       )}
 
-      {/* Counts */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        <div className="p-3.5 bg-white rounded-xl border border-line shadow-2xs">
-          <span className="text-[11px] font-semibold text-ink-muted uppercase tracking-wide">All Files</span>
-          <p className="text-xl font-bold font-mono text-ink tabular-nums mt-0.5">{jobs.length}</p>
-        </div>
-        <div className="p-3.5 bg-white rounded-xl border border-line shadow-2xs">
-          <span className="text-[11px] font-semibold text-ink-muted uppercase tracking-wide">Finished</span>
-          <p className="text-xl font-bold font-mono text-emerald-700 tabular-nums mt-0.5">{finishedJobs.length}</p>
-        </div>
-        <div className="p-3.5 bg-white rounded-xl border border-line shadow-2xs">
-          <span className="text-[11px] font-semibold text-ink-muted uppercase tracking-wide">Waiting</span>
-          <p className="text-xl font-bold font-mono text-amber-700 tabular-nums mt-0.5">{waitingJobs.length}</p>
-        </div>
-        <div className="p-3.5 bg-white rounded-xl border border-line shadow-2xs">
-          <span className="text-[11px] font-semibold text-ink-muted uppercase tracking-wide">Revenue</span>
-          <p className="text-xl font-mono font-bold text-ink tabular-nums mt-0.5">
-            {totalRevenue.toLocaleString()} {settings.currency}
-          </p>
-        </div>
-      </div>
-
       {/* Filters + search */}
       <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3 bg-white p-2.5 rounded-xl border border-line shadow-2xs">
         <div className="flex items-center gap-1.5 overflow-x-auto text-xs font-semibold">
           {[
-            { id: 'all', label: 'All', count: jobs.length },
-            { id: 'finished', label: 'Finished', count: finishedJobs.length },
-            { id: 'waiting', label: 'Waiting', count: waitingJobs.length },
+            { id: 'all', label: t('data.all'), count: jobs.length },
+            { id: 'finished', label: t('data.finished'), count: finishedJobs.length },
+            { id: 'waiting', label: t('data.waiting'), count: waitingJobs.length },
           ].map((tab) => (
             <button
               key={tab.id}
@@ -212,11 +201,11 @@ export const DatasHistoryPage: React.FC<DatasHistoryPageProps> = ({
             onChange={(e) => setDatePreset(e.target.value as typeof datePreset)}
             className="px-2.5 py-2 text-xs border border-line rounded-lg bg-white text-ink font-medium focus:outline-none focus:ring-1 focus:ring-brand cursor-pointer"
           >
-            <option value="all">All time</option>
-            <option value="2months">Past 2 months</option>
-            <option value="30days">Past 30 days</option>
-            <option value="14days">Past 14 days</option>
-            <option value="custom">Custom range</option>
+            <option value="all">{t('data.allTime')}</option>
+            <option value="2months">{t('data.past2months')}</option>
+            <option value="30days">{t('data.past30')}</option>
+            <option value="14days">{t('data.past14')}</option>
+            <option value="custom">{t('data.custom')}</option>
           </select>
 
           {datePreset === 'custom' && (
@@ -227,7 +216,7 @@ export const DatasHistoryPage: React.FC<DatasHistoryPageProps> = ({
                 onChange={(e) => setCustomStartDate(e.target.value)}
                 className="px-2 py-1.5 text-xs border border-line rounded-lg font-mono focus:outline-none focus:ring-1 focus:ring-brand"
               />
-              <span className="text-ink-muted text-xs">to</span>
+              <span className="text-ink-muted text-xs">{t('data.to')}</span>
               <input
                 type="date"
                 value={customEndDate}
@@ -243,7 +232,7 @@ export const DatasHistoryPage: React.FC<DatasHistoryPageProps> = ({
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Search plate or customer"
+              placeholder={t('data.search')}
               className="w-full pl-8 pr-3 py-2 text-xs border border-line rounded-lg focus:outline-none focus:ring-1 focus:ring-brand"
             />
           </div>
@@ -254,27 +243,34 @@ export const DatasHistoryPage: React.FC<DatasHistoryPageProps> = ({
       <div className="bg-white rounded-2xl border border-line overflow-hidden shadow-2xs">
         <div className="p-3.5 border-b border-line bg-sand/40 flex items-center justify-between gap-3">
           <span className="text-xs font-bold text-ink uppercase tracking-wider">
-            Records ({filteredList.length})
+            {t('data.records', { count: filteredList.length })}
           </span>
-          <button
-            type="button"
-            onClick={() => PdfService.generateDailySummaryPdf(filteredList, settings)}
-            className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-ink bg-white border border-line hover:bg-sand/40 rounded-lg cursor-pointer"
-          >
-            <Printer className="w-3.5 h-3.5" />
-            <span>Print PDF</span>
-          </button>
+          <div className="flex items-center gap-1.5">
+            <DocumentShareButton
+              title={t('data.printPdf')}
+              text={`${t('data.printPdf')} · ${filteredList.length}\n${settings.garageName} · ${settings.phone}`}
+              getPdf={() => PdfService.generateDailySummaryPdf(filteredList, settings, { download: false })}
+            />
+            <button
+              type="button"
+              onClick={() => PdfService.generateDailySummaryPdf(filteredList, settings)}
+              className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-ink bg-white border border-line hover:bg-sand/40 rounded-lg cursor-pointer"
+            >
+              <Printer className="w-3.5 h-3.5" />
+              <span>{t('data.printPdf')}</span>
+            </button>
+          </div>
         </div>
 
         <div className="overflow-x-auto">
           <table className="w-full min-w-[640px] text-left text-xs">
             <thead className="bg-sand/50 border-b border-line text-[11px] font-semibold text-ink-muted">
               <tr>
-                <th className="py-2.5 px-3.5">Job / Plate</th>
-                <th className="py-2.5 px-3.5">Customer</th>
-                <th className="py-2.5 px-3.5">Date</th>
-                <th className="py-2.5 px-3.5">Price</th>
-                <th className="py-2.5 px-3.5">Status</th>
+                <th className="py-2.5 px-3.5">{t('data.jobPlate')}</th>
+                <th className="py-2.5 px-3.5">{t('data.customer')}</th>
+                <th className="py-2.5 px-3.5">{t('data.date')}</th>
+                <th className="py-2.5 px-3.5">{t('data.price')}</th>
+                <th className="py-2.5 px-3.5">{t('data.status')}</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-line">
@@ -314,7 +310,7 @@ export const DatasHistoryPage: React.FC<DatasHistoryPageProps> = ({
                 <tr>
                   <td colSpan={5} className="py-12 text-center text-ink-muted/70">
                     <Car className="w-8 h-8 mx-auto text-line mb-2" />
-                    <p className="font-semibold text-ink">No records found</p>
+                    <p className="font-semibold text-ink">{t('data.noRecords')}</p>
                   </td>
                 </tr>
               )}
@@ -325,7 +321,7 @@ export const DatasHistoryPage: React.FC<DatasHistoryPageProps> = ({
 
       {/* Backup & restore */}
       <div className="bg-white rounded-2xl border border-line p-4 sm:p-5 shadow-2xs">
-        <h3 className="text-sm font-bold text-ink mb-3">Backup & Restore</h3>
+        <h3 className="text-sm font-bold text-ink mb-3">{t('data.backupRestore')}</h3>
         <div className="flex flex-wrap items-center gap-2.5">
           <button
             type="button"
@@ -333,11 +329,11 @@ export const DatasHistoryPage: React.FC<DatasHistoryPageProps> = ({
             className="flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-brand hover:bg-brand-hover text-white font-semibold text-xs shadow-xs cursor-pointer"
           >
             <Download className="w-3.5 h-3.5" />
-            <span>Export Backup</span>
+            <span>{t('data.exportBackup')}</span>
           </button>
           <label className="flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-white border border-line hover:bg-sand/40 text-ink font-semibold text-xs cursor-pointer">
             <Upload className="w-3.5 h-3.5" />
-            <span>Restore Backup</span>
+            <span>{t('data.restoreBackup')}</span>
             <input type="file" accept=".json" onChange={handleImportBackup} className="hidden" />
           </label>
           <button
@@ -346,7 +342,7 @@ export const DatasHistoryPage: React.FC<DatasHistoryPageProps> = ({
             className="flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-amber-50 hover:bg-amber-100 border border-amber-300 text-amber-950 font-semibold text-xs cursor-pointer"
           >
             <RefreshCw className="w-3.5 h-3.5" />
-            <span>Load Sample Data</span>
+            <span>{t('data.loadSample')}</span>
           </button>
         </div>
       </div>
