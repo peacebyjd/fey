@@ -26,6 +26,7 @@ import {
   Phone,
 } from 'lucide-react';
 import { OfficialJobCardSheet } from '../reception/OfficialJobCardSheet';
+import { InsuranceVoucherPanel } from '../reception/InsuranceVoucherModal';
 
 interface JobDetailModalProps {
   job: JobRecord | null;
@@ -48,7 +49,7 @@ export const JobDetailModal: React.FC<JobDetailModalProps> = ({
 }) => {
   const { t } = useLanguage();
   const settings = StorageService.getSettings();
-  const [activeTab, setActiveTab] = useState<'overview' | 'job_card' | 'finance' | 'assignment_sms' | 'audit' | 'photos'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'job_card' | 'insurance' | 'finance' | 'assignment_sms' | 'audit' | 'photos'>('overview');
   const [smsFeedback, setSmsFeedback] = useState<string | null>(null);
 
   if (!isOpen || !job) return null;
@@ -64,6 +65,9 @@ export const JobDetailModal: React.FC<JobDetailModalProps> = ({
   const tabs = [
     { id: 'overview', label: t('jobDetail.overview') },
     { id: 'job_card', label: t('jobDetail.jobCard') },
+    ...(currentUser.role !== 'storekeeper'
+      ? [{ id: 'insurance', label: t('jobDetail.insurancePayment') }]
+      : []),
     ...(showFinance ? [{ id: 'finance', label: t('jobDetail.finance') }] : []),
     ...(showTasks
       ? [{ id: 'assignment_sms', label: `${t('jobDetail.tasks')} (${job.smsDispatches?.length || 0})` }]
@@ -174,6 +178,8 @@ export const JobDetailModal: React.FC<JobDetailModalProps> = ({
               />
             </div>
           )}
+
+          {safeTab === 'insurance' && <InsuranceVoucherPanel job={job} />}
 
           {safeTab === 'overview' && (
             <div className="space-y-5">

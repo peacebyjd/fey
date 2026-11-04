@@ -49,7 +49,19 @@ const DRAFT_KEY = 'feyamet_repair_estimate_draft_v1';
 const DEFAULT_TERMS =
   'This estimate is prepared from a physical inspection of the vehicle. Prices cover only the parts and labor listed above. Hidden damage found after dismantling will be estimated separately. The estimate is valid for 14 days from the inspection date.';
 
-const today = () => new Date().toISOString().substring(0, 10);
+const today = () => {
+  const now = new Date();
+  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(
+    now.getDate()
+  ).padStart(2, '0')}`;
+};
+
+const prettyDate = (value: string) => {
+  if (!value) return '—';
+  const date = new Date(`${value}T00:00:00`);
+  if (Number.isNaN(date.getTime())) return value;
+  return date.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+};
 
 const makeEstimateNumber = () =>
   `EST-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`;
@@ -103,12 +115,18 @@ const labelClass =
 const sheetInputClass =
   'w-full bg-transparent border-b border-line px-0.5 py-1 text-[11.5px] font-medium text-ink placeholder:text-ink-muted/40 hover:border-ink-muted/40 focus:outline-none focus:border-brand focus:ring-0 transition-colors';
 
-const SectionHeading: React.FC<{ children: React.ReactNode; action?: React.ReactNode }> = ({
-  children,
-  action,
-}) => (
-  <div className="flex items-center gap-2.5 mb-2">
-    <h2 className="text-[8.5px] font-bold uppercase tracking-[0.18em] text-brand whitespace-nowrap">
+const SectionHeading: React.FC<{
+  children: React.ReactNode;
+  step?: string;
+  action?: React.ReactNode;
+}> = ({ children, step, action }) => (
+  <div className="flex items-center gap-2.5 mb-2.5">
+    {step && (
+      <span className="h-5 w-5 rounded-md bg-brand/10 border border-brand/15 text-brand text-[8px] font-bold flex items-center justify-center shrink-0 tabular-nums">
+        {step}
+      </span>
+    )}
+    <h2 className="text-[8.5px] font-bold uppercase tracking-[0.16em] text-brand whitespace-nowrap">
       {children}
     </h2>
     <span className="flex-1 h-px bg-line" aria-hidden="true" />
@@ -234,7 +252,7 @@ export const RepairEstimatePage: React.FC<RepairEstimatePageProps> = ({ currentU
   return (
     <div className="space-y-3">
       {/* Section heading + document actions */}
-      <div className="no-print flex flex-col gap-2.5 lg:flex-row lg:items-center lg:justify-between">
+      <div className="no-print flex flex-col gap-2.5 xl:flex-row xl:items-center xl:justify-between">
         <div className="min-w-0 flex items-start gap-2.5">
           <span className="w-7 h-7 rounded-lg border border-line text-brand flex items-center justify-center shrink-0">
             <FileText className="w-3.5 h-3.5" />
@@ -249,24 +267,24 @@ export const RepairEstimatePage: React.FC<RepairEstimatePageProps> = ({ currentU
           </div>
         </div>
 
-        <div className="flex items-center gap-1.5 flex-wrap shrink-0">
+        <div className="flex flex-wrap items-center gap-1.5 shrink-0">
           <button
             type="button"
             onClick={handleReset}
             title={t('estimate.newEstimate')}
-            className="flex items-center gap-1.5 h-8 px-2.5 border border-line bg-white text-ink-muted hover:text-brand hover:border-brand/40 text-[11px] font-semibold rounded-lg transition cursor-pointer"
+            className="flex items-center justify-center gap-1.5 min-h-9 px-2.5 border border-line bg-white text-ink-muted hover:text-brand hover:border-brand/40 text-[11px] font-semibold rounded-lg transition cursor-pointer"
           >
-            <RotateCcw className="w-3.5 h-3.5" />
-            <span>{t('estimate.newEstimate')}</span>
+            <RotateCcw className="w-3.5 h-3.5 shrink-0" />
+            <span className="truncate">{t('estimate.newEstimate')}</span>
           </button>
 
           <button
             type="button"
             onClick={() => window.print()}
-            className="flex items-center gap-1.5 h-8 px-2.5 border border-line bg-white text-ink hover:border-ink-muted/40 hover:bg-sand/20 text-[11px] font-semibold rounded-lg transition cursor-pointer"
+            className="flex items-center justify-center gap-1.5 min-h-9 px-2.5 border border-line bg-white text-ink hover:border-ink-muted/40 hover:bg-sand/20 text-[11px] font-semibold rounded-lg transition cursor-pointer"
           >
-            <Printer className="w-3.5 h-3.5" />
-            <span>{t('common.print')}</span>
+            <Printer className="w-3.5 h-3.5 shrink-0" />
+            <span className="truncate">{t('common.print')}</span>
           </button>
 
           <DocumentShareButton
@@ -280,10 +298,10 @@ export const RepairEstimatePage: React.FC<RepairEstimatePageProps> = ({ currentU
           <button
             type="button"
             onClick={() => PdfService.generateRepairEstimatePdf(buildInput(), settings)}
-            className="flex items-center gap-1.5 h-8 px-3 bg-[#800020] hover:bg-[#600018] text-white text-[11px] font-semibold rounded-lg transition cursor-pointer"
+            className="flex items-center justify-center gap-1.5 min-h-9 px-3 bg-[#800020] hover:bg-[#600018] text-white text-[11px] font-semibold rounded-lg transition cursor-pointer"
           >
-            <Download className="w-3.5 h-3.5" />
-            <span>{t('common.exportPdf')}</span>
+            <Download className="w-3.5 h-3.5 shrink-0" />
+            <span className="truncate">{t('common.exportPdf')}</span>
           </button>
         </div>
       </div>
@@ -308,7 +326,7 @@ export const RepairEstimatePage: React.FC<RepairEstimatePageProps> = ({ currentU
             <p className="font-mono text-[11px] font-semibold leading-tight text-ink">
               {form.estimateNumber}
             </p>
-            <p className="text-[7.5px] mt-0.5 text-ink-muted tabular-nums">{form.date}</p>
+            <p className="text-[7.5px] mt-0.5 text-ink-muted tabular-nums">{prettyDate(form.date)}</p>
           </div>
         </div>
 
@@ -333,8 +351,8 @@ export const RepairEstimatePage: React.FC<RepairEstimatePageProps> = ({ currentU
         <div className="px-4 sm:px-6 py-4 space-y-4">
           {/* Client & vehicle */}
           <section>
-            <SectionHeading>Client &amp; vehicle information</SectionHeading>
-            <div className="grid gap-x-5 gap-y-3 sm:grid-cols-2 lg:grid-cols-4">
+            <SectionHeading step="01">Client &amp; vehicle information</SectionHeading>
+            <div className="grid gap-x-5 gap-y-3 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
               <div>
                 <label className={labelClass} htmlFor="estimate-owner">
                   Owner / Driver Name
@@ -425,6 +443,7 @@ export const RepairEstimatePage: React.FC<RepairEstimatePageProps> = ({ currentU
           {/* Cost breakdown */}
           <section>
             <SectionHeading
+              step="02"
               action={
                 <button
                   type="button"
@@ -439,11 +458,11 @@ export const RepairEstimatePage: React.FC<RepairEstimatePageProps> = ({ currentU
               Cost breakdown — parts &amp; labor
             </SectionHeading>
 
-            <div className="overflow-x-auto">
+            <div className="overflow-x-auto overscroll-x-contain">
               <table className="w-full min-w-[520px] border-collapse text-left">
                 <thead>
-                  <tr className="border-y border-line bg-sand/25 text-[7.5px] uppercase tracking-[0.12em] text-ink-muted">
-                    <th className="w-7 px-1.5 py-1.5 font-semibold">No.</th>
+                  <tr className="border-y border-line bg-sand/30 text-[8px] uppercase tracking-[0.12em] text-ink-muted">
+                    <th className="w-8 px-2 py-2 font-semibold">No.</th>
                     <th className="px-1.5 py-1.5 font-semibold">Description of parts &amp; labor work</th>
                     <th className="w-12 px-1.5 py-1.5 font-semibold text-right">Qty</th>
                     <th className="w-24 px-1.5 py-1.5 font-semibold text-right">Unit price</th>
@@ -456,8 +475,8 @@ export const RepairEstimatePage: React.FC<RepairEstimatePageProps> = ({ currentU
                     const lineTotal =
                       (parseFloat(row.quantity) || 0) * (parseFloat(row.unitPrice) || 0);
                     return (
-                      <tr key={row.id} className="group">
-                        <td className="px-1.5 py-0 text-[10px] font-mono text-ink-muted/70 tabular-nums">
+                      <tr key={row.id} className="group hover:bg-sand/20 transition-colors">
+                        <td className="px-2 py-0 text-[10px] font-mono text-ink-muted/70 tabular-nums">
                           {index + 1}
                         </td>
                         <td className="px-1.5 py-0">
@@ -520,22 +539,24 @@ export const RepairEstimatePage: React.FC<RepairEstimatePageProps> = ({ currentU
           </section>
 
           {/* Fixed prices + totals */}
-          <section className="grid gap-4 sm:grid-cols-[1fr_auto] sm:items-start">
+          <section className="grid gap-4 xl:grid-cols-[1fr_16rem] xl:items-start">
             <div>
-              <SectionHeading>Fixed workshop prices — tap to add</SectionHeading>
-              <div className="grid grid-cols-2 gap-x-6">
+              <SectionHeading step="03">Fixed workshop prices — tap to add</SectionHeading>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
                 {priceItems.map((item) => (
                   <button
                     key={item.id}
                     type="button"
                     onClick={() => addPriceItem(item)}
-                    className="group flex items-baseline justify-between gap-2 border-b border-line/70 py-1 text-left text-[10px] text-ink hover:border-brand/40 hover:text-brand transition-colors cursor-pointer"
+                    className="group flex items-center justify-between gap-2 min-h-9 rounded-lg border border-line bg-white px-2.5 py-1.5 text-left text-[10px] text-ink hover:border-brand/50 hover:bg-brand/5 transition-colors cursor-pointer"
                   >
-                    <span className="truncate">
+                    <span className="min-w-0 truncate">
                       {item.name}
-                      {item.action ? ` · ${item.action}` : ''}
+                      {item.action ? (
+                        <span className="text-ink-muted group-hover:text-brand/70"> · {item.action}</span>
+                      ) : null}
                     </span>
-                    <span className="font-semibold whitespace-nowrap tabular-nums text-ink-muted group-hover:text-brand">
+                    <span className="font-mono font-bold whitespace-nowrap tabular-nums text-brand">
                       {settings.currency} {money(item.amount)}
                     </span>
                   </button>
@@ -543,15 +564,15 @@ export const RepairEstimatePage: React.FC<RepairEstimatePageProps> = ({ currentU
               </div>
             </div>
 
-            <div className="w-full sm:w-60 shrink-0">
-              <SectionHeading>Summary</SectionHeading>
-              <div className="flex items-baseline justify-between gap-3 border-b border-line/70 py-1 text-[10.5px]">
+            <div className="w-full xl:w-64 shrink-0 rounded-xl border border-line bg-sand/20 p-3">
+              <SectionHeading step="04">Summary</SectionHeading>
+              <div className="flex items-baseline justify-between gap-3 border-b border-line/70 py-1.5 text-[10.5px]">
                 <span className="text-ink-muted">Subtotal</span>
                 <span className="font-semibold text-ink tabular-nums">
                   {settings.currency} {money(totals.subtotal)}
                 </span>
               </div>
-              <div className="flex items-baseline justify-between gap-3 border-b border-line/70 py-1 text-[10.5px]">
+              <div className="flex items-baseline justify-between gap-3 border-b border-line/70 py-1.5 text-[10.5px]">
                 <span className="text-ink-muted">
                   VAT / Tax ({form.includeVat ? form.vatRate : 0}%)
                 </span>
@@ -559,41 +580,47 @@ export const RepairEstimatePage: React.FC<RepairEstimatePageProps> = ({ currentU
                   {settings.currency} {money(totals.vat)}
                 </span>
               </div>
-              <div className="no-print flex items-center justify-end gap-2 pt-1">
-                <label className="flex items-center gap-1 text-[9.5px] text-ink-muted cursor-pointer">
+              <div className="no-print flex items-center justify-between gap-2 py-1.5">
+                <label className="flex items-center gap-1.5 text-[9.5px] font-semibold text-ink-muted cursor-pointer">
                   <input
                     type="checkbox"
                     checked={form.includeVat}
                     onChange={(e) => update({ includeVat: e.target.checked })}
-                    className="w-3 h-3 accent-[#800020] cursor-pointer"
+                    className="w-3.5 h-3.5 accent-[#800020] cursor-pointer"
                   />
                   Apply VAT
                 </label>
-                <input
-                  type="number"
-                  min={0}
-                  max={100}
-                  step="0.5"
-                  value={form.vatRate}
-                  onChange={(e) => update({ vatRate: parseFloat(e.target.value) || 0 })}
-                  aria-label="VAT rate"
-                  className="w-12 px-1 py-0.5 text-[10px] text-right tabular-nums border-0 border-b border-line bg-transparent hover:border-ink-muted/40 focus:outline-none focus:border-brand transition-colors"
-                />
+                <div className="flex items-center gap-1">
+                  <input
+                    type="number"
+                    min={0}
+                    max={100}
+                    step="0.5"
+                    value={form.vatRate}
+                    onChange={(e) => update({ vatRate: parseFloat(e.target.value) || 0 })}
+                    aria-label="VAT rate"
+                    className="w-12 px-1 py-0.5 text-[10px] text-right tabular-nums border border-line rounded-md bg-white hover:border-ink-muted/40 focus:outline-none focus:border-brand transition-colors"
+                  />
+                  <span className="text-[9.5px] text-ink-muted">%</span>
+                </div>
               </div>
-              <div className="mt-2 flex items-baseline justify-between gap-2 border-t-2 border-[#800020] pt-1.5">
-                <span className="text-[8.5px] font-bold uppercase tracking-[0.14em] text-[#800020]">
+              <div className="mt-1.5 flex items-baseline justify-between gap-2 rounded-lg bg-[#800020] px-2.5 py-2">
+                <span className="text-[8px] font-bold uppercase tracking-[0.14em] text-white/80">
                   Grand total
                 </span>
-                <span className="text-[14px] font-bold whitespace-nowrap text-[#800020] tabular-nums">
+                <span className="text-[14px] font-bold whitespace-nowrap text-white tabular-nums">
                   {settings.currency} {money(totals.total)}
                 </span>
               </div>
+              <p className="mt-1.5 text-[8px] text-ink-muted text-right">
+                Valid for {settings.quoteValidityDays || 14} days
+              </p>
             </div>
           </section>
 
           {/* Terms */}
           <section>
-            <SectionHeading>Terms &amp; declaration</SectionHeading>
+            <SectionHeading step="05">Terms &amp; declaration</SectionHeading>
             <textarea
               value={form.notes}
               onChange={(e) => update({ notes: e.target.value })}
@@ -604,9 +631,9 @@ export const RepairEstimatePage: React.FC<RepairEstimatePageProps> = ({ currentU
           </section>
 
           {/* Signature & stamp */}
-          <section className="grid gap-3 sm:grid-cols-[1fr_auto] sm:items-end pt-1">
+          <section className="grid gap-3 lg:grid-cols-[1fr_180px] lg:items-end pt-1">
             <div className="min-w-0">
-              <SectionHeading>Authorization</SectionHeading>
+              <SectionHeading step="06">Authorization</SectionHeading>
 
               <div className="no-print">
                 <CompactSignaturePad

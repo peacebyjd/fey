@@ -4,122 +4,104 @@ import { StorageService } from '../../services/storage';
 import { PdfService } from '../../services/pdfService';
 import { DocumentShareButton } from '../common/DocumentShareButton';
 import { useLanguage } from '../../i18n/LanguageContext';
-import { X, Download, ShieldCheck } from 'lucide-react';
+import { Download, ShieldCheck, FileText, Wallet } from 'lucide-react';
 
-interface InsuranceVoucherModalProps {
-  isOpen: boolean;
-  jobs: JobRecord[];
-  initialJob?: JobRecord | null;
-  onClose: () => void;
+interface InsuranceVoucherPanelProps {
+  job: JobRecord;
 }
 
-export const InsuranceVoucherModal: React.FC<InsuranceVoucherModalProps> = ({
-  isOpen,
-  jobs,
-  initialJob,
-  onClose,
-}) => {
+/**
+ * Insurance payment voucher shown as a page inside the vehicle job card.
+ * It is no longer a separate reception modal: every claim lives with its job.
+ */
+export const InsuranceVoucherPanel: React.FC<InsuranceVoucherPanelProps> = ({ job }) => {
   const { t } = useLanguage();
   const settings = StorageService.getSettings();
-  const [jobId, setJobId] = useState<string>(initialJob?.id || jobs[0]?.id || '');
   const [pdfUrl, setPdfUrl] = useState<string | null>(null);
 
-  const job = jobs.find((j) => j.id === jobId) || jobs[0];
+  const totalPaid = (job.payments || []).reduce((acc, p) => acc + p.amount, 0);
+  const effectiveTotal = job.finalApprovedPrice > 0 ? job.finalApprovedPrice : job.totalEstimatedCost;
+  const balance = Math.max(0, effectiveTotal - totalPaid);
 
   useEffect(() => {
-    if (isOpen && initialJob) setJobId(initialJob.id);
-  }, [isOpen, initialJob]);
-
-  useEffect(() => {
-    if (!isOpen || !job) {
-      setPdfUrl(null);
-      return;
-    }
     const { blob } = PdfService.generateInsurancePaymentPdf(job, settings, { download: false });
     const url = URL.createObjectURL(blob);
     setPdfUrl(url);
     return () => URL.revokeObjectURL(url);
-  }, [isOpen, job?.id]);
+  }, [job.id]);
 
-  if (!isOpen) return null;
+  const summary = [
+    { label: t('jobDetail.insurance'), value: job.hasInsurance ? job.insuranceCompany || t('jobDetail.insured') : t('jobDetail.directCustomer') },
+    { label: t('jobDetail.claimNumber'), value: job.claimNumber || t('common.na') },
+    { label: t('jobDetail.estimatedCost'), value: `${effectiveTotal.toLocaleString()} ${settings.currency}` },
+    { label: t('jobDetail.totalPaid'), value: `${totalPaid.toLocaleString()} ${settings.currency}` },
+    { label: t('jobDetail.remainingBalance'), value: `${balance.toLocaleString()} ${settings.currency}` },
+  ];
 
   return (
-    <div className="fixed inset-0 z-50 bg-ink/70 p-2 sm:p-4 flex items-center justify-center overflow-hidden no-print">
-      <div className="w-full max-w-4xl h-full max-h-[96vh] flex flex-col">
-        {/* Toolbar */}
-        <div className="shrink-0 flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-3 bg-white rounded-2xl border border-line shadow-lg px-3 py-2.5">
-          <div className="flex items-center gap-2 min-w-0">
-            <span className="w-8 h-8 rounded-lg bg-coral/10 text-brand flex items-center justify-center shrink-0">
-              <ShieldCheck className="w-4 h-4" />
-            </span>
-            <div className="min-w-0">
-              <p className="text-xs font-bold text-ink truncate">{t('reports.insuranceVoucher')}</p>
-              <p className="text-[11px] text-ink-muted truncate">
-                {job ? `${job.jobNumber} · ${job.plateNumber}` : t('recorder.noRecords')}
-              </p>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-1.5 flex-wrap">
-            <select
-              value={job?.id || ''}
-              onChange={(e) => setJobId(e.target.value)}
-              disabled={jobs.length === 0}
-              className="px-2 py-2 text-[11px] border border-line rounded-lg bg-white font-mono max-w-[220px] focus:outline-none focus:ring-1 focus:ring-brand cursor-pointer disabled:opacity-50"
-            >
-              {jobs.map((j) => (
-                <option key={j.id} value={j.id}>
-                  {j.jobNumber} — {j.plateNumber}
-                </option>
-              ))}
-            </select>
-
-            {job && (
-              <DocumentShareButton
-                title={`${t('reports.insuranceVoucher')} — ${job.jobNumber}`}
-                text={`${t('reports.insuranceVoucher')} · ${job.jobNumber} · ${job.plateNumber} · ${job.vehicleMake} ${job.vehicleModel}\n${settings.garageName} · ${settings.phone}`}
-                getPdf={() => PdfService.generateInsurancePaymentPdf(job, settings, { download: false })}
-              />
-            )}
-
-            <button
-              type="button"
-              disabled={!job}
-              onClick={() => job && PdfService.generateInsurancePaymentPdf(job, settings)}
-              className="flex items-center gap-1.5 px-3 py-2 bg-[#800020] hover:bg-[#600018] text-white text-xs font-semibold rounded-xl transition cursor-pointer disabled:opacity-50"
-              title={t('recorder.exportPdfTitle')}
-            >
-              <Download className="w-3.5 h-3.5" />
-              <span>{t('common.exportPdf')}</span>
-            </button>
-
-            <button
-              type="button"
-              onClick={onClose}
-              className="p-2 text-ink-muted hover:text-ink hover:bg-sand rounded-xl transition cursor-pointer"
-              title={t('recorder.closeReview')}
-            >
-              <X className="w-5 h-5" />
-            </button>
+    <div className="space-y-3">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div className="flex items-center gap-2 min-w-0">
+          <span className="w-8 h-8 rounded-lg bg-blue-50 text-blue-800 border border-blue-200 flex items-center justify-center shrink-0">
+            <ShieldCheck className="w-4 h-4" />
+          </span>
+          <div className="min-w-0">
+            <p className="text-sm font-bold text-ink truncate">{t('reports.insuranceVoucher')}</p>
+            <p className="text-[11px] text-ink-muted truncate">
+              {job.jobNumber} · {job.plateNumber} · {job.customerName}
+            </p>
           </div>
         </div>
 
-        {/* Voucher page preview */}
-        <div className="flex-1 min-h-0 bg-white rounded-2xl border border-line overflow-hidden">
-          {pdfUrl ? (
-            <iframe
-              key={pdfUrl}
-              title={t('reports.insuranceVoucher')}
-              src={pdfUrl}
-              className="w-full h-full"
-            />
-          ) : (
-            <div className="h-full flex flex-col items-center justify-center gap-2 p-8 text-center">
-              <ShieldCheck className="w-8 h-8 text-line" />
-              <p className="text-xs text-ink-muted">{t('recorder.insurancePaymentHint')}</p>
-            </div>
-          )}
+        <div className="flex items-center gap-1.5">
+          <DocumentShareButton
+            title={`${t('reports.insuranceVoucher')} — ${job.jobNumber}`}
+            text={`${t('reports.insuranceVoucher')} · ${job.jobNumber} · ${job.plateNumber} · ${job.vehicleMake} ${job.vehicleModel}\n${settings.garageName} · ${settings.phone}`}
+            getPdf={() => PdfService.generateInsurancePaymentPdf(job, settings, { download: false })}
+          />
+          <button
+            type="button"
+            onClick={() => PdfService.generateInsurancePaymentPdf(job, settings)}
+            className="flex items-center gap-1.5 px-3 py-2 bg-[#800020] hover:bg-[#600018] text-white text-xs font-semibold rounded-xl transition cursor-pointer"
+            title={t('recorder.exportPdfTitle')}
+          >
+            <Download className="w-3.5 h-3.5" />
+            <span>{t('common.exportPdf')}</span>
+          </button>
         </div>
+      </div>
+
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2">
+        {summary.map((item) => (
+          <div key={item.label} className="p-2.5 bg-sand/40 border border-line rounded-xl min-w-0">
+            <p className="text-[10px] text-ink-muted">{item.label}</p>
+            <p className="text-[11px] font-bold text-ink mt-0.5 truncate" title={item.value}>
+              {item.value}
+            </p>
+          </div>
+        ))}
+      </div>
+
+      <div className="flex items-center gap-1.5 text-[11px] text-ink-muted">
+        <FileText className="w-3.5 h-3.5" />
+        <span>{t('recorder.insurancePaymentHint')}</span>
+        <Wallet className="w-3.5 h-3.5 ml-auto" />
+      </div>
+
+      <div className="border border-line rounded-xl overflow-hidden bg-white h-[58vh] min-h-[340px]">
+        {pdfUrl ? (
+          <iframe
+            key={pdfUrl}
+            title={t('reports.insuranceVoucher')}
+            src={pdfUrl}
+            className="w-full h-full"
+          />
+        ) : (
+          <div className="h-full flex flex-col items-center justify-center gap-2 p-8 text-center">
+            <ShieldCheck className="w-8 h-8 text-line" />
+            <p className="text-xs text-ink-muted">{t('recorder.insurancePaymentHint')}</p>
+          </div>
+        )}
       </div>
     </div>
   );

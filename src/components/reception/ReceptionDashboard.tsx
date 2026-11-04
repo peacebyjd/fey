@@ -5,7 +5,6 @@ import { PdfService } from '../../services/pdfService';
 import { StatusBadge } from '../common/StatusBadge';
 import { VehicleRegistrationModal } from './VehicleRegistrationModal';
 import { OfficialJobCardSheet } from './OfficialJobCardSheet';
-import { InsuranceVoucherModal } from './InsuranceVoucherModal';
 import { PartsRequestModal } from './PartsRequestModal';
 import { DEMO_SAMPLE_JOB } from '../../services/sampleData';
 import { useLanguage } from '../../i18n/LanguageContext';
@@ -22,7 +21,6 @@ import {
   FileText,
   ShieldCheck,
   ChevronRight,
-  Printer,
   X,
   Download,
   PackagePlus,
@@ -47,9 +45,7 @@ export const ReceptionDashboard: React.FC<ReceptionDashboardProps> = ({
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingJob, setEditingJob] = useState<JobRecord | null>(null);
   const [selectedJobForJobCard, setSelectedJobForJobCard] = useState<JobRecord | null>(null);
-  const [showBlankJobCard, setShowBlankJobCard] = useState(false);
   const [showSampleJobCard, setShowSampleJobCard] = useState(false);
-  const [showInsuranceVoucher, setShowInsuranceVoucher] = useState(false);
   const [partsJob, setPartsJob] = useState<JobRecord | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
@@ -97,54 +93,10 @@ export const ReceptionDashboard: React.FC<ReceptionDashboardProps> = ({
 
   const closeJobCardPreview = () => {
     setSelectedJobForJobCard(null);
-    setShowBlankJobCard(false);
     setShowSampleJobCard(false);
   };
 
-  const blankJobCardPreview: JobRecord = {
-    id: 'blank-print',
-    jobNumber: StorageService.getNextJobNumber(),
-    status: 'Received',
-    createdAt: new Date().toISOString(),
-    createdBy: currentUser.name,
-    updatedAt: new Date().toISOString(),
-    customerName: '',
-    customerPhone: '',
-    vehicleMake: '',
-    vehicleModel: '',
-    plateNumber: '',
-    vin: '',
-    mileage: null,
-    receivedAt: new Date().toISOString().substring(0, 10),
-    customerProblem: '',
-    repairDescription: '',
-    initialInspectionNotes: '',
-    sparePartsRequiredNotes: '',
-    vehicleConditionOnArrival: '',
-    hasInsurance: false,
-    photos: [],
-    priority: 'Medium',
-    laborCost: 0,
-    sparePartsCost: 0,
-    additionalServiceCost: 0,
-    otherCharges: 0,
-    discount: 0,
-    taxRate: 15,
-    totalEstimatedCost: 0,
-    finalApprovedPrice: 0,
-    actualFinalCost: 0,
-    quotationStatus: 'Draft',
-    quotationValidityDays: 14,
-    spareParts: [],
-    payments: [],
-    paymentStatus: 'Unpaid',
-    smsDispatches: [],
-    checklist: [],
-    auditTrail: [],
-  };
-
-  const previewJob =
-    selectedJobForJobCard || (showSampleJobCard ? DEMO_SAMPLE_JOB : blankJobCardPreview);
+  const previewJob = selectedJobForJobCard || DEMO_SAMPLE_JOB;
 
   const totalRegisteredToday = jobs.filter(
     (j) => j.receivedAt && j.receivedAt.startsWith(new Date().toISOString().substring(0, 10))
@@ -167,25 +119,6 @@ export const ReceptionDashboard: React.FC<ReceptionDashboardProps> = ({
           </div>
 
           <div className="flex items-center gap-1.5 flex-wrap">
-            <button
-              type="button"
-              onClick={() => setShowInsuranceVoucher(true)}
-              disabled={jobs.length === 0}
-              className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-blue-50 hover:bg-blue-100 text-blue-900 border border-blue-200 font-semibold text-[11px] sm:text-xs transition cursor-pointer disabled:opacity-50"
-              title={t('recorder.insurancePayment')}
-            >
-              <ShieldCheck className="w-3.5 h-3.5 text-blue-700" />
-              <span>{t('recorder.insurancePayment')}</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => setShowBlankJobCard(true)}
-              className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-sand/50 hover:bg-sand text-ink font-semibold text-[11px] sm:text-xs transition cursor-pointer"
-              title={t('recorder.blankJobCard')}
-            >
-              <Printer className="w-3.5 h-3.5 text-ink-muted" />
-              <span>{t('recorder.blankJobCard')}</span>
-            </button>
             <button
               type="button"
               onClick={() => setShowSampleJobCard(true)}
@@ -406,19 +339,15 @@ export const ReceptionDashboard: React.FC<ReceptionDashboardProps> = ({
         )}
       </div>
 
-      {/* Official Job Card Sheet Modal (Filled or Blank) */}
-      {(selectedJobForJobCard || showBlankJobCard || showSampleJobCard) && (
+      {/* Official Job Card Sheet Modal */}
+      {(selectedJobForJobCard || showSampleJobCard) && (
         <div className="fixed inset-0 z-50 bg-ink/70 p-2 sm:p-4 flex items-center justify-center overflow-hidden no-print">
           <div className="w-full max-w-4xl h-full max-h-[96vh] flex flex-col">
             {/* Action bar stays outside the scrolling PDF so it never covers it */}
             <div className="shrink-0 flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-3 bg-white rounded-2xl border border-line shadow-lg px-4 py-3">
               <div className="flex items-center gap-2 min-w-0">
                 <span className="px-2.5 py-1 bg-coral/10 text-[#800020] text-xs font-bold rounded-lg border border-coral/30 uppercase tracking-wide shrink-0">
-                  {showSampleJobCard
-                    ? t('recorder.sampleJobCard')
-                    : showBlankJobCard
-                    ? t('recorder.blankJobCard')
-                    : t('recorder.reviewJobCard')}
+                  {showSampleJobCard ? t('recorder.sampleJobCard') : t('recorder.reviewJobCard')}
                 </span>
                 <span className="font-mono text-xs font-bold text-ink truncate">
                   {previewJob.jobNumber}
@@ -469,12 +398,6 @@ export const ReceptionDashboard: React.FC<ReceptionDashboardProps> = ({
           </div>
         </div>
       )}
-
-      <InsuranceVoucherModal
-        isOpen={showInsuranceVoucher}
-        jobs={jobs}
-        onClose={() => setShowInsuranceVoucher(false)}
-      />
 
       <PartsRequestModal
         isOpen={!!partsJob}

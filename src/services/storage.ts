@@ -39,7 +39,7 @@ import {
 
 const STORAGE_KEYS = {
   JOBS: 'feyamet_garage_jobs_v11',
-  WAITING_SAMPLES: 'feyamet_waiting_samples_v1',
+  WAITING_SAMPLES: 'feyamet_waiting_samples_v2',
   USERS: 'feyamet_garage_users_v3',
   TEAMS: 'feyamet_garage_teams_v2',
   MECHANIC_DIRECTORY: 'feyamet_mechanic_dir_v2',
@@ -1078,6 +1078,9 @@ export class StorageService {
     itemName: string;
     quantity: number;
     note?: string;
+    supplierPhone?: string;
+    /** The recorder orders directly from an outside shop for this vehicle. */
+    orderOutside?: boolean;
   }): PartsRequest | null {
     const user = this.getCurrentUser();
     if (!user || !['admin', 'reception', 'manager'].includes(user.role)) return null;
@@ -1087,6 +1090,8 @@ export class StorageService {
     const quantity = Math.max(1, Math.floor(Number(input.quantity) || 0));
     if (!job || !itemName || quantity <= 0) return null;
 
+    const now = new Date().toISOString().replace('T', ' ').substring(0, 16);
+    const orderOutside = input.orderOutside === true;
     const request: PartsRequest = {
       id: `part-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
       jobId: job.id,
@@ -1096,25 +1101,23 @@ export class StorageService {
       itemName,
       quantity,
       note: input.note?.trim() || '',
-      status: 'Pending',
+      supplierPhone: input.supplierPhone?.trim() || undefined,
+      status: orderOutside ? 'Ordered Outside' : 'Pending',
+      source: orderOutside ? 'Outside' : undefined,
       requestedBy: user.name,
-      requestedAt: new Date().toISOString().replace('T', ' ').substring(0, 16),
+      requestedAt: now,
+      handledBy: orderOutside ? user.name : undefined,
+      handledAt: orderOutside ? now : undefined,
     };
 
     this.savePartsRequests([request, ...this.getPartsRequests()]);
 
     this.addNotification({
-      targetRole: 'storekeeper',
-      title: `Parts Request - ${job.jobNumber}`,
-      message: `${user.name} needs ${quantity} x ${itemName} for ${job.plateNumber}. Open Store > Requests.`,
-      jobId: job.id,
-      jobNumber: job.jobNumber,
-      type: 'parts',
-    });
-    this.addNotification({
       targetRole: 'manager',
-      title: `Parts Request - ${job.jobNumber}`,
-      message: `${user.name} sent a store request for ${quantity} x ${itemName} (${job.plateNumber}).`,
+      title: `Parts Order - ${job.jobNumber}`,
+      message: orderOutside
+        ? `${user.name} ordered ${quantity} x ${itemName} from an outside shop for ${job.plateNumber}.`
+        : `${user.name} sent a store request for ${quantity} x ${itemName} (${job.plateNumber}).`,
       jobId: job.id,
       jobNumber: job.jobNumber,
       type: 'parts',
@@ -1128,8 +1131,14 @@ export class StorageService {
     action: 'issue-store' | 'order-outside' | 'mark-received'
   ): { ok: boolean; error?: string; request?: PartsRequest } {
     const user = this.getCurrentUser();
-    if (!user || !['admin', 'storekeeper'].includes(user.role)) {
-      return { ok: false, error: 'Only the Store Keeper can handle parts requests.' };
+    const canHandleOutside =
+      user?.role === 'reception' && (action === 'order-outside' || action === 'mark-received');
+    const canHandleStore = user?.role === 'admin' || user?.role === 'storekeeper';
+    if (!user || (!canHandleOutside && !canHandleStore)) {
+      return {
+        ok: false,
+        error: 'Only the Recorder can order outside and mark it received.',
+      };
     }
 
     const requests = this.getPartsRequests();
@@ -1186,14 +1195,16 @@ export class StorageService {
         : 'received from outside';
     const message = `${request.quantity} x ${request.itemName} for ${request.jobNumber} (${request.vehiclePlate}) ${outcome}.`;
 
-    this.addNotification({
-      targetRole: 'reception',
-      title: `Parts Update - ${request.jobNumber}`,
-      message,
-      jobId: request.jobId,
-      jobNumber: request.jobNumber,
-      type: 'parts',
-    });
+    if (action !== 'mark-received') {
+      this.addNotification({
+        targetRole: 'reception',
+        title: `Parts Update - ${request.jobNumber}`,
+        message,
+        jobId: request.jobId,
+        jobNumber: request.jobNumber,
+        type: 'parts',
+      });
+    }
     this.addNotification({
       targetRole: 'manager',
       title: `Parts Update - ${request.jobNumber}`,

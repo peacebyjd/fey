@@ -317,6 +317,8 @@ export interface PartsRequest {
   itemName: string;
   quantity: number;
   note?: string;
+  /** Phone number of the outside shop, so the recorder can call it. */
+  supplierPhone?: string;
   status: PartsRequestStatus;
   source?: 'Store' | 'Outside';
   materialId?: string;

@@ -17,18 +17,19 @@ import {
   Search,
   Boxes,
   Minus,
-  ClipboardList,
-  Truck,
-  CheckCircle2,
 } from 'lucide-react';
 import { StorageService } from '../../services/storage';
 import { useLanguage } from '../../i18n/LanguageContext';
+import {
+  useLongPressDrag,
+  DragPreview,
+  type DragPayload,
+} from '../../hooks/useLongPressDrag';
 import {
   MaterialIssueRecord,
   MaterialItem,
   MechanicStaff,
   MechanicTeam,
-  PartsRequest,
   ToolCategory,
   ToolCheckoutRecord,
   User,
@@ -67,23 +68,15 @@ const emptyMaterialDraft = {
 
 export const StoreDashboard: React.FC<StoreDashboardProps> = ({ currentUser }) => {
   const { t } = useLanguage();
-  const [view, setView] = useState<'tools' | 'materials' | 'requests'>('tools');
+  const [view, setView] = useState<'tools' | 'materials'>('tools');
   const [tools, setTools] = useState<WorkshopTool[]>(() => StorageService.getWorkshopTools());
   const [checkouts, setCheckouts] = useState<ToolCheckoutRecord[]>(() => StorageService.getToolCheckouts());
   const [materials, setMaterials] = useState<MaterialItem[]>(() => StorageService.getMaterials());
   const [materialIssues, setMaterialIssues] = useState<MaterialIssueRecord[]>(() =>
     StorageService.getMaterialIssues()
   );
-  const [partsRequests, setPartsRequests] = useState<PartsRequest[]>(() => StorageService.getPartsRequests());
   const [mechanics, setMechanics] = useState<MechanicStaff[]>(() => StorageService.getMechanics());
   const [teams, setTeams] = useState<MechanicTeam[]>(() => StorageService.getTeams());
-
-  const [draggedToolId, setDraggedToolId] = useState<string | null>(null);
-  const [selectedToolId, setSelectedToolId] = useState<string | null>(null);
-
-  const [draggedMaterialId, setDraggedMaterialId] = useState<string | null>(null);
-  const [selectedMaterialId, setSelectedMaterialId] = useState<string | null>(null);
-  const [materialIssueQty, setMaterialIssueQty] = useState(1);
 
   const [isToolModalOpen, setIsToolModalOpen] = useState(false);
   const [editingTool, setEditingTool] = useState<WorkshopTool | null>(null);
@@ -103,13 +96,28 @@ export const StoreDashboard: React.FC<StoreDashboardProps> = ({ currentUser }) =
   const isAdmin = currentUser.role === 'admin';
   const canIssue = currentUser.role === 'admin' || currentUser.role === 'storekeeper';
 
+  type StoreDragPayload = DragPayload & { kind: 'tool' | 'material' };
+  const { drag, activeTarget, startDrag, shouldIgnoreClick } = useLongPressDrag<StoreDragPayload>({
+    onDrop: (payload, targetId) => {
+      if (!targetId) return;
+      const mechanic = mechanics.find((m) => m.id === targetId);
+      if (!mechanic) return;
+      if (payload.kind === 'tool') {
+        const tool = tools.find((item) => item.id === payload.id);
+        if (tool) issueToolToMechanic(tool, mechanic);
+      } else {
+        const material = materials.find((item) => item.id === payload.id);
+        if (material) issueMaterialToMechanic(material, mechanic, 1);
+      }
+    },
+  });
+
   useEffect(() => {
     const unsub = StorageService.subscribe(() => {
       setTools(StorageService.getWorkshopTools());
       setCheckouts(StorageService.getToolCheckouts());
       setMaterials(StorageService.getMaterials());
       setMaterialIssues(StorageService.getMaterialIssues());
-      setPartsRequests(StorageService.getPartsRequests());
       setMechanics(StorageService.getMechanics());
       setTeams(StorageService.getTeams());
     });
@@ -120,39 +128,6 @@ export const StoreDashboard: React.FC<StoreDashboardProps> = ({ currentUser }) =
     setNoticeKind(kind);
     setNotice(msg);
     setTimeout(() => setNotice(null), 3200);
-  };
-
-  const pendingPartsCount = partsRequests.filter(
-    (request) => request.status === 'Pending' || request.status === 'Ordered Outside'
-  ).length;
-  const requestRank: Record<PartsRequest['status'], number> = {
-    Pending: 0,
-    'Ordered Outside': 1,
-    Issued: 2,
-    Received: 3,
-    Cancelled: 4,
-  };
-  const sortedPartsRequests = [...partsRequests].sort(
-    (a, b) => requestRank[a.status] - requestRank[b.status] || b.requestedAt.localeCompare(a.requestedAt)
-  );
-
-  const handlePartsAction = (
-    request: PartsRequest,
-    action: 'issue-store' | 'order-outside' | 'mark-received'
-  ) => {
-    if (!canIssue) return;
-    const result = StorageService.updatePartsRequest(request.id, action);
-    if (!result.ok) {
-      flash(result.error || 'Could not update this request.', 'error');
-      return;
-    }
-    if (action === 'issue-store') {
-      flash(`${request.quantity} x ${request.itemName} issued for ${request.jobNumber}.`);
-    } else if (action === 'order-outside') {
-      flash(`${request.itemName} marked for outside order.`);
-    } else {
-      flash(`${request.itemName} marked received.`);
-    }
   };
 
   const filteredTools = useMemo(
@@ -185,13 +160,11 @@ export const StoreDashboard: React.FC<StoreDashboardProps> = ({ currentUser }) =
   const activeCheckouts = checkouts.filter((c) => c.status === 'Checked Out' || c.status === 'Overdue');
   const outstandingForMechanic = (m: MechanicStaff) => activeCheckouts.filter((c) => c.mechanicId === m.id);
   const issuedCount = activeCheckouts.reduce((sum, c) => sum + (c.quantity || 1), 0);
-  const selectedTool = tools.find((t) => t.id === selectedToolId) || null;
 
   const activeMaterialIssues = materialIssues.filter((issue) => issue.status === 'Issued');
   const outstandingMaterialsForMechanic = (m: MechanicStaff) =>
     activeMaterialIssues.filter((issue) => issue.mechanicId === m.id);
   const issuedMaterialCount = activeMaterialIssues.reduce((sum, issue) => sum + issue.quantity, 0);
-  const selectedMaterial = materials.find((m) => m.id === selectedMaterialId) || null;
 
   const issueToolToMechanic = (tool: WorkshopTool, mechanic: MechanicStaff) => {
     if (!canIssue) return;
@@ -211,26 +184,11 @@ export const StoreDashboard: React.FC<StoreDashboardProps> = ({ currentUser }) =
       undefined,
       1
     );
-    setSelectedToolId(null);
-    setDraggedToolId(null);
     if (record) {
       flash(`Gave ${tool.code} to ${mechanic.name}.`);
     } else {
       flash(`${tool.code} could not be given out.`);
     }
-  };
-
-  const handleDropOnMechanic = (e: React.DragEvent, mechanic: MechanicStaff) => {
-    e.preventDefault();
-    const toolId = draggedToolId || selectedToolId;
-    const tool = tools.find((t) => t.id === toolId);
-    if (!tool) return;
-    issueToolToMechanic(tool, mechanic);
-  };
-
-  const handleTapMechanic = (mechanic: MechanicStaff) => {
-    if (!selectedTool) return;
-    issueToolToMechanic(selectedTool, mechanic);
   };
 
   const handleReturn = (checkout: ToolCheckoutRecord, disposition: 'Returned' | 'Damaged' | 'Lost') => {
@@ -363,9 +321,6 @@ export const StoreDashboard: React.FC<StoreDashboardProps> = ({ currentUser }) =
     if (!canIssue) return;
     const updated = StorageService.adjustMaterialQuantity(material.id, delta);
     if (updated) {
-      if (selectedMaterialId === material.id) {
-        setMaterialIssueQty((q) => Math.max(1, Math.min(q, updated.quantity || 1)));
-      }
       flash(`${updated.name}: ${updated.quantity} ${updated.unit} in store.`);
     }
   };
@@ -391,27 +346,11 @@ export const StoreDashboard: React.FC<StoreDashboardProps> = ({ currentUser }) =
       issuedByStaffName: currentUser.name,
       quantity: qty,
     });
-    setSelectedMaterialId(null);
-    setDraggedMaterialId(null);
-    setMaterialIssueQty(1);
     if (record) {
       flash(`Gave ${qty} ${material.unit} of ${material.name} to ${mechanic.name}.`);
     } else {
       flash(`Could not give ${material.name} out. Check the stock quantity.`, 'error');
     }
-  };
-
-  const handleDropOnMaterialMechanic = (e: React.DragEvent, mechanic: MechanicStaff) => {
-    e.preventDefault();
-    const materialId = draggedMaterialId || selectedMaterialId;
-    const material = materials.find((m) => m.id === materialId);
-    if (!material) return;
-    issueMaterialToMechanic(material, mechanic, 1);
-  };
-
-  const handleTapMaterialMechanic = (mechanic: MechanicStaff) => {
-    if (!selectedMaterial) return;
-    issueMaterialToMechanic(selectedMaterial, mechanic, materialIssueQty);
   };
 
   const handleReturnMaterialIssue = (issue: MaterialIssueRecord) => {
@@ -431,26 +370,16 @@ export const StoreDashboard: React.FC<StoreDashboardProps> = ({ currentUser }) =
           <div className="w-11 h-11 rounded-card bg-brand flex items-center justify-center text-white shadow-soft">
             {view === 'tools' ? (
               <Package className="w-5 h-5" />
-            ) : view === 'materials' ? (
-              <Boxes className="w-5 h-5" />
             ) : (
-              <ClipboardList className="w-5 h-5" />
+              <Boxes className="w-5 h-5" />
             )}
           </div>
           <div>
             <h2 className="text-lg font-extrabold text-ink">
-              {view === 'tools'
-                ? t('store.titleTools')
-                : view === 'materials'
-                ? t('store.titleMaterials')
-                : t('store.titleRequests')}
+              {view === 'tools' ? t('store.titleTools') : t('store.titleMaterials')}
             </h2>
             <p className="text-xs text-ink-muted">
-              {view === 'tools'
-                ? t('store.descTools')
-                : view === 'materials'
-                ? t('store.descMaterials')
-                : t('store.descRequests')}
+              {view === 'tools' ? t('store.descTools') : t('store.descMaterials')}
             </p>
           </div>
         </div>
@@ -471,23 +400,6 @@ export const StoreDashboard: React.FC<StoreDashboardProps> = ({ currentUser }) =
               }`}
             >
               {t('store.materials')}
-            </button>
-            <button
-              onClick={() => setView('requests')}
-              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer flex items-center gap-1.5 ${
-                view === 'requests' ? 'bg-brand text-white' : 'text-ink-muted hover:text-ink'
-              }`}
-            >
-              {t('store.requests')}
-              {pendingPartsCount > 0 && (
-                <span
-                  className={`min-w-[18px] px-1 py-0.5 rounded-full font-mono text-[10px] ${
-                    view === 'requests' ? 'bg-white/25 text-white' : 'bg-amber-100 text-amber-900'
-                  }`}
-                >
-                  {pendingPartsCount}
-                </span>
-              )}
             </button>
           </div>
           {view === 'tools' && (
@@ -531,62 +443,6 @@ export const StoreDashboard: React.FC<StoreDashboardProps> = ({ currentUser }) =
         </div>
       )}
 
-      {view === 'tools' && selectedTool && (
-        <div className="text-xs text-brand bg-coral/10 border border-coral/30 px-3 py-2 rounded-card flex items-center justify-between font-semibold">
-          <span>
-            {t('store.tapMechanic', { code: selectedTool.code, name: selectedTool.name })}
-          </span>
-          <button
-            onClick={() => setSelectedToolId(null)}
-            className="text-[11px] font-bold underline cursor-pointer"
-          >
-            {t('store.cancel')}
-          </button>
-        </div>
-      )}
-
-      {view === 'materials' && selectedMaterial && (
-        <div className="text-xs text-brand bg-coral/10 border border-coral/30 px-3 py-2 rounded-card flex flex-col sm:flex-row sm:items-center justify-between gap-2 font-semibold">
-          <span>
-            {t('store.tapMaterial', { name: selectedMaterial.name })}
-          </span>
-          <div className="flex items-center gap-2">
-            <div className="flex items-center gap-1 bg-white border border-line rounded-lg p-0.5">
-              <button
-                onClick={() => setMaterialIssueQty((q) => Math.max(1, q - 1))}
-                disabled={materialIssueQty <= 1}
-                className="h-6 w-6 flex items-center justify-center rounded-md hover:bg-sand/60 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
-                title={t('store.less')}
-              >
-                <Minus className="w-3 h-3" />
-              </button>
-              <span className="min-w-[58px] text-center font-mono text-[11px]">
-                {materialIssueQty} {selectedMaterial.unit}
-              </span>
-              <button
-                onClick={() =>
-                  setMaterialIssueQty((q) => Math.min(selectedMaterial.quantity, q + 1))
-                }
-                disabled={materialIssueQty >= selectedMaterial.quantity}
-                className="h-6 w-6 flex items-center justify-center rounded-md hover:bg-sand/60 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
-                title={t('store.more')}
-              >
-                <Plus className="w-3 h-3" />
-              </button>
-            </div>
-            <button
-              onClick={() => {
-                setSelectedMaterialId(null);
-                setMaterialIssueQty(1);
-              }}
-              className="text-[11px] font-bold underline cursor-pointer"
-            >
-              {t('store.cancel')}
-            </button>
-          </div>
-        </div>
-      )}
-
       {view === 'tools' && (
       <div className="grid lg:grid-cols-12 gap-3">
         {/* Tools (big, easy cards) */}
@@ -599,6 +455,10 @@ export const StoreDashboard: React.FC<StoreDashboardProps> = ({ currentUser }) =
               </div>
               <span className="text-[10px] text-ink-muted">{t('store.toolsCount', { count: filteredTools.length })}</span>
             </div>
+            <p className="text-[10px] text-brand font-semibold mb-2 flex items-center gap-1">
+              <GripVertical className="w-3 h-3" />
+              {t('store.dragToolHint')}
+            </p>
             <div className="relative">
               <Search className="w-3.5 h-3.5 text-ink-muted/70 absolute left-2.5 top-1/2 -translate-y-1/2" />
               <input
@@ -629,36 +489,40 @@ export const StoreDashboard: React.FC<StoreDashboardProps> = ({ currentUser }) =
             <div className="grid sm:grid-cols-2 gap-2.5">
               {filteredTools.map((tool) => {
                 const noneLeft = tool.availableQuantity <= 0;
-                const isSelected = selectedToolId === tool.id;
+                const canDrag = canIssue && !noneLeft;
                 return (
                   <div
                     key={tool.id}
-                    draggable={canIssue && !noneLeft}
-                    onDragStart={() => setDraggedToolId(tool.id)}
-                    onDragEnd={() => setDraggedToolId(null)}
-                    onClick={() => canIssue && !noneLeft && setSelectedToolId(isSelected ? null : tool.id)}
-                    className={`rounded-card border p-3 flex flex-col justify-between transition ${
-                      canIssue && !noneLeft ? 'cursor-grab active:cursor-grabbing' : ''
+                    onPointerDown={(e) =>
+                      startDrag(
+                        e,
+                        {
+                          id: tool.id,
+                          label: tool.name,
+                          subLabel: `${tool.code} · ${tool.availableQuantity} available`,
+                          kind: 'tool',
+                        },
+                        !canDrag
+                      )
+                    }
+                    onContextMenu={(e) => e.preventDefault()}
+                    className={`rounded-card border p-3 flex flex-col justify-between transition select-none ${
+                      canDrag ? 'cursor-grab active:cursor-grabbing touch-pan-y' : ''
                     } ${
-                      isSelected
-                        ? 'border-brand ring-2 ring-brand/30 bg-coral/5'
-                        : noneLeft
+                      noneLeft
                         ? 'border-line bg-sand/30 opacity-70'
                         : 'border-line bg-white hover:bg-sand/40'
                     }`}
-                    title={noneLeft ? 'None left' : 'Drag onto a mechanic, or tap then tap a mechanic'}
+                    title={noneLeft ? t('store.outOfStock') : t('store.dragToolHint')}
                   >
                     <div className="flex items-start justify-between gap-2">
                       <div className="min-w-0">
-                        <div className="font-bold text-ink text-xs leading-snug">
-                          <span className="font-mono text-brand">{tool.code}</span>
-                        </div>
-                        <div className="text-[11px] text-ink mt-0.5 leading-snug">{tool.name}</div>
-                        <div className="text-[10px] text-ink-muted mt-0.5">
-                          {tool.category} · {tool.locationRack}
-                        </div>
+                        <p className="font-bold text-ink text-sm leading-tight truncate">{tool.name}</p>
+                        <p className="text-[10px] text-ink-muted mt-0.5 font-mono truncate">
+                          {tool.code} · {tool.locationRack}
+                        </p>
                       </div>
-                      {canIssue && !noneLeft && (
+                      {canDrag && (
                         <GripVertical className="w-4 h-4 text-ink-muted/50 shrink-0" />
                       )}
                     </div>
@@ -722,15 +586,17 @@ export const StoreDashboard: React.FC<StoreDashboardProps> = ({ currentUser }) =
               {activeMechanics.map((m) => {
                 const out = outstandingForMechanic(m);
                 const team = teams.find((t) => t.id === m.teamId);
-                const canDrop = canIssue && (!!selectedTool || !!draggedToolId);
+                const isTarget = drag?.payload.kind === 'tool' && activeTarget === m.id;
                 return (
                   <div
                     key={m.id}
-                    onDragOver={(e) => canIssue && e.preventDefault()}
-                    onDrop={(e) => handleDropOnMechanic(e, m)}
-                    onClick={() => handleTapMechanic(m)}
+                    data-drop-target={m.id}
                     className={`border rounded-card flex flex-col overflow-hidden transition ${
-                      canDrop ? 'border-brand ring-2 ring-brand/20 cursor-pointer' : 'border-line'
+                      isTarget
+                        ? 'border-brand ring-2 ring-brand/50 bg-coral/5'
+                        : drag?.payload.kind === 'tool'
+                        ? 'border-dashed border-brand/50'
+                        : 'border-line'
                     }`}
                   >
                     <div className="bg-brand text-white px-2.5 py-2 flex items-center justify-between">
@@ -794,7 +660,9 @@ export const StoreDashboard: React.FC<StoreDashboardProps> = ({ currentUser }) =
                       {out.length === 0 && (
                         <div
                           className={`text-[10px] text-center py-4 border border-dashed rounded-lg ${
-                            canDrop ? 'border-brand text-brand' : 'border-line text-ink-muted/70'
+                            drag?.payload.kind === 'tool'
+                              ? 'border-brand text-brand font-semibold'
+                              : 'border-line text-ink-muted/70'
                           }`}
                         >
                           {canIssue ? t('store.dropHere') : t('store.noToolsOut')}
@@ -836,6 +704,10 @@ export const StoreDashboard: React.FC<StoreDashboardProps> = ({ currentUser }) =
                   className="w-full pl-8 pr-2 py-2 text-xs bg-cream border border-line rounded-card focus:outline-none focus:ring-2 focus:ring-brand/25 focus:border-brand"
                 />
               </div>
+              <p className="text-[10px] text-brand font-semibold mt-2 flex items-center gap-1">
+                <GripVertical className="w-3 h-3" />
+                {t('store.dragMaterialHint')}
+              </p>
             </div>
 
             <div className="p-3 overflow-y-auto smooth-scroll">
@@ -843,37 +715,31 @@ export const StoreDashboard: React.FC<StoreDashboardProps> = ({ currentUser }) =
                 {filteredMaterials.map((material) => {
                   const lowStock = material.quantity <= 5;
                   const noneLeft = material.quantity <= 0;
-                  const isSelected = selectedMaterialId === material.id;
+                  const canDrag = canIssue && !noneLeft;
                   return (
                     <div
                       key={material.id}
-                      draggable={canIssue && !noneLeft}
-                      onDragStart={() => setDraggedMaterialId(material.id)}
-                      onDragEnd={() => setDraggedMaterialId(null)}
-                      onClick={() => {
-                        if (!canIssue || noneLeft) return;
-                        if (isSelected) {
-                          setSelectedMaterialId(null);
-                          setMaterialIssueQty(1);
-                        } else {
-                          setSelectedMaterialId(material.id);
-                          setMaterialIssueQty(1);
-                        }
-                      }}
-                      className={`rounded-card border p-3 flex flex-col justify-between gap-2 transition ${
-                        canIssue && !noneLeft ? 'cursor-grab active:cursor-grabbing' : ''
+                      onPointerDown={(e) =>
+                        startDrag(
+                          e,
+                          {
+                            id: material.id,
+                            label: material.name,
+                            subLabel: `${material.quantity} ${material.unit} in store`,
+                            kind: 'material',
+                          },
+                          !canDrag
+                        )
+                      }
+                      onContextMenu={(e) => e.preventDefault()}
+                      className={`rounded-card border p-3 flex flex-col justify-between gap-2 transition select-none ${
+                        canDrag ? 'cursor-grab active:cursor-grabbing touch-pan-y' : ''
                       } ${
-                        isSelected
-                          ? 'border-brand ring-2 ring-brand/30 bg-coral/5'
-                          : noneLeft
+                        noneLeft
                           ? 'border-line bg-sand/30 opacity-70'
                           : 'border-line bg-white hover:bg-sand/40'
                       }`}
-                      title={
-                        noneLeft
-                          ? t('store.outOfStock')
-                          : 'Drag onto a mechanic, or tap then choose a quantity'
-                      }
+                      title={noneLeft ? t('store.outOfStock') : t('store.dragMaterialHint')}
                     >
                       <div className="flex items-start justify-between gap-2">
                         <div className="min-w-0">
@@ -978,16 +844,18 @@ export const StoreDashboard: React.FC<StoreDashboardProps> = ({ currentUser }) =
                 {activeMechanics.map((m) => {
                   const out = outstandingMaterialsForMechanic(m);
                   const team = teams.find((t) => t.id === m.teamId);
-                  const canDrop = canIssue && (!!selectedMaterial || !!draggedMaterialId);
+                  const isTarget = drag?.payload.kind === 'material' && activeTarget === m.id;
                   const unitsOut = out.reduce((sum, issue) => sum + issue.quantity, 0);
                   return (
                     <div
                       key={m.id}
-                      onDragOver={(e) => canIssue && e.preventDefault()}
-                      onDrop={(e) => handleDropOnMaterialMechanic(e, m)}
-                      onClick={() => handleTapMaterialMechanic(m)}
+                      data-drop-target={m.id}
                       className={`border rounded-card flex flex-col overflow-hidden transition ${
-                        canDrop ? 'border-brand ring-2 ring-brand/20 cursor-pointer' : 'border-line'
+                        isTarget
+                          ? 'border-brand ring-2 ring-brand/50 bg-coral/5'
+                          : drag?.payload.kind === 'material'
+                          ? 'border-dashed border-brand/50'
+                          : 'border-line'
                       }`}
                     >
                       <div className="bg-brand text-white px-2.5 py-2 flex items-center justify-between">
@@ -1032,7 +900,9 @@ export const StoreDashboard: React.FC<StoreDashboardProps> = ({ currentUser }) =
                         {out.length === 0 && (
                           <div
                             className={`text-[10px] text-center py-4 border border-dashed rounded-lg ${
-                              canDrop ? 'border-brand text-brand' : 'border-line text-ink-muted/70'
+                              drag?.payload.kind === 'material'
+                                ? 'border-brand text-brand font-semibold'
+                                : 'border-line text-ink-muted/70'
                             }`}
                           >
                             {canIssue ? t('store.dropMaterialHere') : t('store.noMaterialsOut')}
@@ -1051,144 +921,38 @@ export const StoreDashboard: React.FC<StoreDashboardProps> = ({ currentUser }) =
         </div>
       )}
 
-      {view === 'requests' && (
-        <div className="bg-white rounded-card border border-line shadow-soft">
-          <div className="p-3 border-b border-line">
-            <div className="flex items-center justify-between gap-2">
-              <div className="flex items-center gap-1.5">
-                <ClipboardList className="w-4 h-4 text-brand" />
-                <h3 className="text-sm font-bold text-ink">{t('store.partsRequests')}</h3>
-              </div>
-              <span className="text-[10px] text-ink-muted">
-                {t('store.requestsCount', { count: partsRequests.length })}
-              </span>
-            </div>
-            <p className="text-[11px] text-ink-muted mt-1">
-              {t('store.requestsHint')}
-            </p>
-          </div>
-
-          <div className="p-3">
-            {sortedPartsRequests.length === 0 ? (
-              <div className="text-[11px] text-ink-muted text-center py-8 border border-dashed border-line rounded-card">
-                {t('store.noRequests')}
-              </div>
-            ) : (
-              <div className="grid gap-2.5">
-                {sortedPartsRequests.map((request) => {
-                  const stock = materials.find(
-                    (material) =>
-                      material.name.trim().toLowerCase() ===
-                      request.itemName.trim().toLowerCase()
-                  );
-                  const canIssueStock = !!stock && stock.quantity >= request.quantity;
-                  const isPending = request.status === 'Pending';
-                  const isOutside = request.status === 'Ordered Outside';
-                  return (
-                    <div
-                      key={request.id}
-                      className="rounded-card border border-line bg-white p-3 space-y-2"
-                    >
-                      <div className="flex items-start justify-between gap-2">
-                        <div className="min-w-0">
-                          <p className="font-mono text-[10px] text-ink-muted">
-                            {request.jobNumber} / {request.vehiclePlate}
-                          </p>
-                          <p className="text-sm font-bold text-ink">
-                            {request.quantity} x {request.itemName}
-                          </p>
-                          <p className="text-[10px] text-ink-muted truncate">
-                            {request.vehicleName}
-                          </p>
-                        </div>
-                        <span
-                          className={`shrink-0 px-2 py-0.5 rounded-full border text-[10px] font-bold ${
-                            request.status === 'Issued' || request.status === 'Received'
-                              ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
-                              : request.status === 'Ordered Outside'
-                              ? 'bg-blue-50 text-blue-800 border-blue-200'
-                              : request.status === 'Cancelled'
-                              ? 'bg-sand text-ink-muted border-line'
-                              : 'bg-amber-50 text-amber-900 border-amber-300'
-                          }`}
-                        >
-                          {request.status}
-                        </span>
-                      </div>
-
-                      {request.note && (
-                        <p className="text-[11px] text-ink-muted">{t('store.note')} {request.note}</p>
-                      )}
-
-                      <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[10px] text-ink-muted">
-                        <span>
-                          {t('store.by')} {request.requestedBy} / {request.requestedAt}
-                        </span>
-                        <span
-                          className={
-                            stock && stock.quantity > 0 ? 'text-emerald-700' : 'text-amber-700'
-                          }
-                        >
-                          {stock
-                            ? t('store.inStore', { qty: stock.quantity, unit: stock.unit })
-                            : t('store.notInMaterials')}
-                        </span>
-                      </div>
-
-                      {canIssue && (isPending || isOutside) && (
-                        <div className="flex flex-wrap gap-2 pt-1">
-                          {isPending && (
-                            <>
-                              <button
-                                type="button"
-                                onClick={() => handlePartsAction(request, 'issue-store')}
-                                disabled={!canIssueStock}
-                                className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 disabled:bg-line disabled:cursor-not-allowed text-white text-[11px] font-bold cursor-pointer"
-                                title={
-                                  canIssueStock
-                                    ? 'Take this quantity from store stock'
-                                    : 'Not enough stock in Materials'
-                                }
-                              >
-                                <Package className="w-3.5 h-3.5" />
-                                {t('store.issueFromStore')}
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => handlePartsAction(request, 'order-outside')}
-                                className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-[11px] font-bold cursor-pointer"
-                              >
-                                <Truck className="w-3.5 h-3.5" />
-                                {t('store.orderOutside')}
-                              </button>
-                            </>
-                          )}
-                          {isOutside && (
-                            <button
-                              type="button"
-                              onClick={() => handlePartsAction(request, 'mark-received')}
-                              className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-[11px] font-bold cursor-pointer"
-                            >
-                              <CheckCircle2 className="w-3.5 h-3.5" />
-                              {t('store.markReceived')}
-                            </button>
-                          )}
-                        </div>
-                      )}
-
-                      {request.handledBy && (
-                        <p className="text-[10px] text-ink-muted">
-                          {t('store.handledBy')} {request.handledBy} / {request.handledAt}
-                        </p>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
+      {/* Phone/tablet drop dock: always reachable while a card is held */}
+      {drag && canIssue && (
+        <div className="fixed inset-x-0 bottom-0 z-[125] bg-white/95 backdrop-blur border-t-2 border-brand shadow-2xl no-print px-2 pt-2 pb-[max(0.5rem,env(safe-area-inset-bottom))]">
+          <p className="text-[10px] font-bold uppercase tracking-wider text-brand px-1 mb-1">
+            {t('store.dropOnMechanic')}
+          </p>
+          <div className="flex gap-2 overflow-x-auto pb-1">
+            {activeMechanics.map((m) => {
+              const isTarget = activeTarget === m.id;
+              return (
+                <div
+                  key={m.id}
+                  data-drop-target={m.id}
+                  className={`shrink-0 min-w-[132px] rounded-xl border-2 px-3 py-2 transition ${
+                    isTarget ? 'bg-brand text-white border-brand scale-[1.02]' : 'bg-white border-line text-ink'
+                  }`}
+                >
+                  <p className="text-xs font-bold truncate">{m.name}</p>
+                  <p className={`text-[10px] truncate ${isTarget ? 'text-white/80' : 'text-ink-muted'}`}>
+                    {m.specialty}
+                  </p>
+                </div>
+              );
+            })}
+            {activeMechanics.length === 0 && (
+              <p className="text-[11px] text-ink-muted">{t('store.noMechanics')}</p>
             )}
           </div>
         </div>
       )}
+
+      <DragPreview drag={drag} />
 
       {/* Add / Edit tool (admin) */}
       {isToolModalOpen && (

@@ -220,6 +220,8 @@ body {
     border-radius: 0 !important;
     box-shadow: none !important;
     overflow: visible !important;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
   }
 
   .estimate-band {

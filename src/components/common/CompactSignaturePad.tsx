@@ -1,5 +1,5 @@
 import React, { useRef, useState, useEffect } from 'react';
-import { Pen, RotateCcw, Check } from 'lucide-react';
+import { Pen, RotateCcw, Check, Sparkles } from 'lucide-react';
 
 interface CompactSignaturePadProps {
   label: string;
@@ -128,6 +128,36 @@ export const CompactSignaturePad: React.FC<CompactSignaturePadProps> = ({
     onChange('');
   };
 
+  // Quick demo mark so staff can show a signed card on a fresh device.
+  const handleSample = () => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    const dpr = window.devicePixelRatio || 1;
+    const width = canvas.width / dpr;
+    const height = canvas.height / dpr;
+    const name = signerName.trim() || 'Feyamet Garage';
+
+    ctx.clearRect(0, 0, width, height);
+    ctx.fillStyle = '#171717';
+    ctx.textBaseline = 'middle';
+    ctx.font = 'italic 26px "Segoe Script", "Brush Script MT", cursive';
+    ctx.fillText(name, 14, height / 2 - 2, width - 28);
+
+    ctx.strokeStyle = '#171717';
+    ctx.lineWidth = 1.8;
+    ctx.lineCap = 'round';
+    ctx.beginPath();
+    ctx.moveTo(12, height / 2 + 14);
+    ctx.bezierCurveTo(width * 0.3, height / 2 + 6, width * 0.62, height / 2 + 22, width - 12, height / 2 + 10);
+    ctx.stroke();
+
+    setHasDrawn(true);
+    onChange(canvas.toDataURL('image/png'));
+  };
+
   return (
     <div className="bg-white border border-line rounded-lg p-2.5 space-y-1.5 shadow-2xs">
       <div className="flex items-center justify-between gap-2">
@@ -144,17 +174,26 @@ export const CompactSignaturePad: React.FC<CompactSignaturePadProps> = ({
             <span>Draw</span>
           </span>
 
-          {(hasDrawn || value) && (
-            <button
-              type="button"
-              onClick={handleClear}
-              className="p-1 rounded text-[10px] font-medium bg-coral/10 text-brand hover:bg-coral/15 flex items-center gap-0.5 ml-1 transition"
-              title="Clear signature"
-            >
-              <RotateCcw className="w-2.5 h-2.5" />
-              <span>Clear</span>
-            </button>
-          )}
+          <button
+            type="button"
+            onClick={handleSample}
+            className="p-1 rounded text-[10px] font-medium bg-sand/70 text-ink hover:bg-sand flex items-center gap-0.5 transition"
+            title="Fill a sample signature"
+          >
+            <Sparkles className="w-2.5 h-2.5" />
+            <span>Sample</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={handleClear}
+            disabled={!hasDrawn && !value}
+            className="p-1 rounded text-[10px] font-medium bg-coral/10 text-brand hover:bg-coral/15 flex items-center gap-0.5 transition disabled:opacity-40 disabled:cursor-not-allowed"
+            title="Clear signature"
+          >
+            <RotateCcw className="w-2.5 h-2.5" />
+            <span>Clear</span>
+          </button>
         </div>
       </div>
 
