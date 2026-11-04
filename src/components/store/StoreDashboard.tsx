@@ -88,6 +88,7 @@ export const StoreDashboard: React.FC<StoreDashboardProps> = ({ currentUser }) =
   const [materialDraft, setMaterialDraft] = useState({ ...emptyMaterialDraft });
   const [materialError, setMaterialError] = useState<string | null>(null);
 
+  const [issueQty, setIssueQty] = useState<Record<string, number>>({});
   const [search, setSearch] = useState('');
   const [categoryFilter, setCategoryFilter] = useState<'All' | ToolCategory>('All');
   const [notice, setNotice] = useState<string | null>(null);
@@ -96,8 +97,8 @@ export const StoreDashboard: React.FC<StoreDashboardProps> = ({ currentUser }) =
   const isAdmin = currentUser.role === 'admin';
   const canIssue = currentUser.role === 'admin' || currentUser.role === 'storekeeper';
 
-  type StoreDragPayload = DragPayload & { kind: 'tool' | 'material' };
-  const { drag, activeTarget, startDrag, shouldIgnoreClick } = useLongPressDrag<StoreDragPayload>({
+  type StoreDragPayload = DragPayload & { kind: 'tool' | 'material'; quantity?: number };
+  const { drag, activeTarget, startDrag } = useLongPressDrag<StoreDragPayload>({
     onDrop: (payload, targetId) => {
       if (!targetId) return;
       const mechanic = mechanics.find((m) => m.id === targetId);
@@ -107,7 +108,7 @@ export const StoreDashboard: React.FC<StoreDashboardProps> = ({ currentUser }) =
         if (tool) issueToolToMechanic(tool, mechanic);
       } else {
         const material = materials.find((item) => item.id === payload.id);
-        if (material) issueMaterialToMechanic(material, mechanic, 1);
+        if (material) issueMaterialToMechanic(material, mechanic, payload.quantity ?? 1);
       }
     },
   });
@@ -317,12 +318,12 @@ export const StoreDashboard: React.FC<StoreDashboardProps> = ({ currentUser }) =
     }
   };
 
-  const handleAdjustMaterial = (material: MaterialItem, delta: number) => {
-    if (!canIssue) return;
-    const updated = StorageService.adjustMaterialQuantity(material.id, delta);
-    if (updated) {
-      flash(`${updated.name}: ${updated.quantity} ${updated.unit} in store.`);
-    }
+  const qtyForMaterial = (material: MaterialItem) =>
+    Math.max(1, Math.min(issueQty[material.id] ?? 1, Math.max(1, material.quantity)));
+
+  const changeMaterialQty = (material: MaterialItem, delta: number) => {
+    const next = Math.max(1, Math.min(qtyForMaterial(material) + delta, Math.max(1, material.quantity)));
+    setIssueQty((prev) => ({ ...prev, [material.id]: next }));
   };
 
   const issueMaterialToMechanic = (
@@ -347,18 +348,10 @@ export const StoreDashboard: React.FC<StoreDashboardProps> = ({ currentUser }) =
       quantity: qty,
     });
     if (record) {
+      setIssueQty((prev) => ({ ...prev, [material.id]: 1 }));
       flash(`Gave ${qty} ${material.unit} of ${material.name} to ${mechanic.name}.`);
     } else {
       flash(`Could not give ${material.name} out. Check the stock quantity.`, 'error');
-    }
-  };
-
-  const handleReturnMaterialIssue = (issue: MaterialIssueRecord) => {
-    const ok = StorageService.returnMaterial(issue.id, currentUser.name);
-    if (ok) {
-      flash(`${issue.quantity} ${issue.unit} of ${issue.materialName} returned to stock.`);
-    } else {
-      flash('Could not return this material.', 'error');
     }
   };
 
@@ -485,7 +478,7 @@ export const StoreDashboard: React.FC<StoreDashboardProps> = ({ currentUser }) =
             </div>
           </div>
 
-          <div className="p-3 overflow-y-auto smooth-scroll">
+          <div className="p-3 min-h-0 overflow-y-auto smooth-scroll">
             <div className="grid sm:grid-cols-2 gap-2.5">
               {filteredTools.map((tool) => {
                 const noneLeft = tool.availableQuantity <= 0;
@@ -507,7 +500,7 @@ export const StoreDashboard: React.FC<StoreDashboardProps> = ({ currentUser }) =
                     }
                     onContextMenu={(e) => e.preventDefault()}
                     className={`rounded-card border p-3 flex flex-col justify-between transition select-none ${
-                      canDrag ? 'cursor-grab active:cursor-grabbing touch-pan-y' : ''
+                      canDrag ? 'cursor-grab active:cursor-grabbing' : ''
                     } ${
                       noneLeft
                         ? 'border-line bg-sand/30 opacity-70'
@@ -574,14 +567,14 @@ export const StoreDashboard: React.FC<StoreDashboardProps> = ({ currentUser }) =
           </div>
         </div>
 
-        {/* Mechanics (simple boxes) */}
-        <div className="lg:col-span-5 bg-white rounded-card border border-line shadow-soft flex flex-col lg:max-h-[70vh]">
+        {/* Mechanics (simple boxes) — pinned above the tool list on phones/tablets */}
+        <div className="order-first lg:order-none sticky top-2 z-20 max-h-[38vh] lg:static lg:col-span-5 bg-white rounded-card border border-line shadow-soft flex flex-col lg:max-h-[70vh]">
           <div className="p-3 border-b border-line flex items-center gap-1.5">
             <UserCheck className="w-4 h-4 text-brand" />
             <h3 className="text-sm font-bold text-ink">{t('store.mechanics')}</h3>
             <span className="text-[10px] text-ink-muted">({t('store.dropHere')})</span>
           </div>
-          <div className="p-3 overflow-y-auto smooth-scroll">
+          <div className="p-3 min-h-0 overflow-y-auto smooth-scroll">
             <div className="grid grid-cols-1 gap-2.5">
               {activeMechanics.map((m) => {
                 const out = outstandingForMechanic(m);
@@ -710,12 +703,13 @@ export const StoreDashboard: React.FC<StoreDashboardProps> = ({ currentUser }) =
               </p>
             </div>
 
-            <div className="p-3 overflow-y-auto smooth-scroll">
+            <div className="p-3 min-h-0 overflow-y-auto smooth-scroll">
               <div className="grid sm:grid-cols-2 gap-2.5">
                 {filteredMaterials.map((material) => {
                   const lowStock = material.quantity <= 5;
                   const noneLeft = material.quantity <= 0;
                   const canDrag = canIssue && !noneLeft;
+                  const giveQty = qtyForMaterial(material);
                   return (
                     <div
                       key={material.id}
@@ -725,15 +719,16 @@ export const StoreDashboard: React.FC<StoreDashboardProps> = ({ currentUser }) =
                           {
                             id: material.id,
                             label: material.name,
-                            subLabel: `${material.quantity} ${material.unit} in store`,
+                            subLabel: `${giveQty} ${material.unit} to give · ${material.quantity} in store`,
                             kind: 'material',
+                            quantity: giveQty,
                           },
                           !canDrag
                         )
                       }
                       onContextMenu={(e) => e.preventDefault()}
                       className={`rounded-card border p-3 flex flex-col justify-between gap-2 transition select-none ${
-                        canDrag ? 'cursor-grab active:cursor-grabbing touch-pan-y' : ''
+                        canDrag ? 'cursor-grab active:cursor-grabbing' : ''
                       } ${
                         noneLeft
                           ? 'border-line bg-sand/30 opacity-70'
@@ -795,25 +790,29 @@ export const StoreDashboard: React.FC<StoreDashboardProps> = ({ currentUser }) =
                           </span>
                         </span>
                         {canIssue && (
-                          <div className="flex items-center gap-1">
+                          <div className="flex items-center gap-1" title={t('store.giveQuantity')}>
                             <button
                               onClick={(e) => {
                                 e.stopPropagation();
-                                handleAdjustMaterial(material, -1);
+                                changeMaterialQty(material, -1);
                               }}
-                              disabled={material.quantity <= 0}
+                              disabled={giveQty <= 1}
                               className="h-8 w-8 flex items-center justify-center bg-white border border-line hover:bg-sand/50 disabled:opacity-40 disabled:cursor-not-allowed rounded-lg cursor-pointer"
-                              title={t('store.removeOne')}
+                              title={t('store.less')}
                             >
                               <Minus className="w-3.5 h-3.5" />
                             </button>
+                            <span className="min-w-[30px] text-center font-mono text-sm font-bold text-ink tabular-nums">
+                              {giveQty}
+                            </span>
                             <button
                               onClick={(e) => {
                                 e.stopPropagation();
-                                handleAdjustMaterial(material, 1);
+                                changeMaterialQty(material, 1);
                               }}
-                              className="h-8 w-8 flex items-center justify-center bg-brand text-white hover:bg-brand-hover rounded-lg cursor-pointer"
-                              title={t('store.addOne')}
+                              disabled={giveQty >= material.quantity}
+                              className="h-8 w-8 flex items-center justify-center bg-brand text-white hover:bg-brand-hover disabled:opacity-40 disabled:cursor-not-allowed rounded-lg cursor-pointer"
+                              title={t('store.more')}
                             >
                               <Plus className="w-3.5 h-3.5" />
                             </button>
@@ -832,14 +831,14 @@ export const StoreDashboard: React.FC<StoreDashboardProps> = ({ currentUser }) =
             </div>
           </div>
 
-          {/* Mechanics */}
-          <div className="lg:col-span-5 bg-white rounded-card border border-line shadow-soft flex flex-col lg:max-h-[70vh]">
+          {/* Mechanics — pinned above the material list on phones/tablets */}
+          <div className="order-first lg:order-none sticky top-2 z-20 max-h-[38vh] lg:static lg:col-span-5 bg-white rounded-card border border-line shadow-soft flex flex-col lg:max-h-[70vh]">
             <div className="p-3 border-b border-line flex items-center gap-1.5">
               <UserCheck className="w-4 h-4 text-brand" />
               <h3 className="text-sm font-bold text-ink">{t('store.mechanicsTitle')}</h3>
               <span className="text-[10px] text-ink-muted">({t('store.dropMaterialHere')})</span>
             </div>
-            <div className="p-3 overflow-y-auto smooth-scroll">
+            <div className="p-3 min-h-0 overflow-y-auto smooth-scroll">
               <div className="grid grid-cols-1 gap-2.5">
                 {activeMechanics.map((m) => {
                   const out = outstandingMaterialsForMechanic(m);
@@ -885,16 +884,9 @@ export const StoreDashboard: React.FC<StoreDashboardProps> = ({ currentUser }) =
                                 Issued {issue.issuedAt}
                               </div>
                             </div>
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handleReturnMaterialIssue(issue);
-                              }}
-                              className="px-2 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded-md text-[10px] font-semibold flex items-center gap-1 shrink-0 cursor-pointer"
-                              title={t('store.returnUnused')}
-                            >
-                              <RotateCcw className="w-3 h-3" /> {t('store.return')}
-                            </button>
+                            <span className="shrink-0 px-2 py-1 rounded-md bg-sand/60 border border-line text-[10px] font-semibold text-ink-muted">
+                              {t('store.replacement')}
+                            </span>
                           </div>
                         ))}
                         {out.length === 0 && (
@@ -917,37 +909,6 @@ export const StoreDashboard: React.FC<StoreDashboardProps> = ({ currentUser }) =
                 )}
               </div>
             </div>
-          </div>
-        </div>
-      )}
-
-      {/* Phone/tablet drop dock: always reachable while a card is held */}
-      {drag && canIssue && (
-        <div className="fixed inset-x-0 bottom-0 z-[125] bg-white/95 backdrop-blur border-t-2 border-brand shadow-2xl no-print px-2 pt-2 pb-[max(0.5rem,env(safe-area-inset-bottom))]">
-          <p className="text-[10px] font-bold uppercase tracking-wider text-brand px-1 mb-1">
-            {t('store.dropOnMechanic')}
-          </p>
-          <div className="flex gap-2 overflow-x-auto pb-1">
-            {activeMechanics.map((m) => {
-              const isTarget = activeTarget === m.id;
-              return (
-                <div
-                  key={m.id}
-                  data-drop-target={m.id}
-                  className={`shrink-0 min-w-[132px] rounded-xl border-2 px-3 py-2 transition ${
-                    isTarget ? 'bg-brand text-white border-brand scale-[1.02]' : 'bg-white border-line text-ink'
-                  }`}
-                >
-                  <p className="text-xs font-bold truncate">{m.name}</p>
-                  <p className={`text-[10px] truncate ${isTarget ? 'text-white/80' : 'text-ink-muted'}`}>
-                    {m.specialty}
-                  </p>
-                </div>
-              );
-            })}
-            {activeMechanics.length === 0 && (
-              <p className="text-[11px] text-ink-muted">{t('store.noMechanics')}</p>
-            )}
           </div>
         </div>
       )}

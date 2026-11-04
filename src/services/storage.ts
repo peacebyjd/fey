@@ -48,7 +48,7 @@ const STORAGE_KEYS = {
   CURRENT_USER: 'feyamet_current_user_v2',
   TOOLS: 'feyamet_garage_tools_v1',
   TOOL_CHECKOUTS: 'feyamet_garage_tool_checkouts_v1',
-  TOOL_NAME_MIGRATION: 'feyamet_tool_names_it_v1',
+  TOOL_NAME_MIGRATION: 'feyamet_tool_names_simple_v2',
   MATERIALS: 'feyamet_garage_materials_v1',
   MATERIAL_ISSUES: 'feyamet_material_issues_v1',
   PARTS_REQUESTS: 'feyamet_parts_requests_v1',

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
 import { JobRecord, JobStatus, User } from '../../types';
 import { StorageService } from '../../services/storage';
 import { PdfService } from '../../services/pdfService';
@@ -20,6 +20,7 @@ import {
   Eye,
   FileText,
   ShieldCheck,
+  ChevronLeft,
   ChevronRight,
   X,
   Download,
@@ -52,9 +53,10 @@ export const ReceptionDashboard: React.FC<ReceptionDashboardProps> = ({
   const [insuranceFilter, setInsuranceFilter] = useState<string>('all');
   const [saveSuccessMessage, setSaveSuccessMessage] = useState<string | null>(null);
 
+  const searching = searchQuery.trim().length > 0;
   const filteredJobs = jobs.filter((job) => {
-    // Completed vehicles leave the active Registered Vehicles list.
-    if (job.status === 'Completed') return false;
+    // Finished vehicles leave the active list, but stay findable by search.
+    if ((job.status === 'Completed' || job.status === 'Cancelled') && !searching) return false;
 
     const matchesSearch =
       job.jobNumber.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -97,6 +99,12 @@ export const ReceptionDashboard: React.FC<ReceptionDashboardProps> = ({
   };
 
   const previewJob = selectedJobForJobCard || DEMO_SAMPLE_JOB;
+
+  const cardsRef = useRef<HTMLDivElement | null>(null);
+  const useSlider = filteredJobs.length > 9;
+  const slideCards = (direction: 1 | -1) => {
+    cardsRef.current?.scrollBy({ left: direction * 310, behavior: 'smooth' });
+  };
 
   const totalRegisteredToday = jobs.filter(
     (j) => j.receivedAt && j.receivedAt.startsWith(new Date().toISOString().substring(0, 10))
@@ -229,15 +237,46 @@ export const ReceptionDashboard: React.FC<ReceptionDashboardProps> = ({
           <span className="text-xs font-bold text-ink uppercase tracking-wider">
             {t('recorder.registeredVehicles', { count: filteredJobs.length })}
           </span>
-          <span className="text-[11px] text-ink-muted/70">{t('recorder.tapRow')}</span>
+          {useSlider ? (
+            <div className="flex items-center gap-1.5">
+              <span className="text-[10px] text-ink-muted/70 mr-1">{t('recorder.slideHint')}</span>
+              <button
+                type="button"
+                onClick={() => slideCards(-1)}
+                aria-label={t('recorder.slidePrev')}
+                className="h-7 w-7 flex items-center justify-center rounded-lg border border-line bg-white text-ink-muted hover:text-ink hover:bg-sand/50 cursor-pointer"
+              >
+                <ChevronLeft className="w-4 h-4" />
+              </button>
+              <button
+                type="button"
+                onClick={() => slideCards(1)}
+                aria-label={t('recorder.slideNext')}
+                className="h-7 w-7 flex items-center justify-center rounded-lg border border-line bg-white text-ink-muted hover:text-ink hover:bg-sand/50 cursor-pointer"
+              >
+                <ChevronRight className="w-4 h-4" />
+              </button>
+            </div>
+          ) : (
+            <span className="text-[11px] text-ink-muted/70">{t('recorder.tapRow')}</span>
+          )}
         </div>
 
         {filteredJobs.length > 0 ? (
-          <div className="p-2.5 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2.5">
+          <div
+            ref={cardsRef}
+            className={
+              useSlider
+                ? 'p-2.5 flex gap-2.5 overflow-x-auto snap-x snap-mandatory smooth-scroll overscroll-x-contain pb-3'
+                : 'p-2.5 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2.5'
+            }
+          >
             {filteredJobs.map((job) => (
               <div
                 key={job.id}
-                className="bg-white border border-line rounded-xl p-3 shadow-2xs space-y-2 hover:border-brand/50 transition"
+                className={`bg-white border border-line rounded-xl p-3 shadow-2xs space-y-2 hover:border-brand/50 transition ${
+                  useSlider ? 'snap-start shrink-0 w-[272px] sm:w-[300px]' : ''
+                }`}
               >
                 <div className="flex items-center justify-between gap-2">
                   <span className="font-mono font-bold text-xs text-ink flex items-center gap-1.5 min-w-0">

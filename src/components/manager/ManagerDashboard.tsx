@@ -12,6 +12,11 @@ import { PriorityBadge } from '../common/StatusBadge';
 import { TeamManagementModal } from './TeamManagementModal';
 import { JobAssignmentModal } from './JobAssignmentModal';
 import {
+  useLongPressDrag,
+  DragPreview,
+  type DragPayload,
+} from '../../hooks/useLongPressDrag';
+import {
   Users,
   Search,
   CheckCircle2,
@@ -84,9 +89,6 @@ export const ManagerDashboard: React.FC<ManagerDashboardProps> = ({
   const [selectedJobForAssign, setSelectedJobForAssign] = useState<JobRecord | null>(null);
   const [initialTeamForModal, setInitialTeamForModal] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
-  const [draggedJobId, setDraggedJobId] = useState<string | null>(null);
-  const [pickedJobId, setPickedJobId] = useState<string | null>(null);
-  const [isTouch, setIsTouch] = useState(false);
   const [notificationToast, setNotificationToast] = useState<string | null>(null);
   const [expenses, setExpenses] = useState(() => StorageService.getExpenses());
 
@@ -94,15 +96,6 @@ export const ManagerDashboard: React.FC<ManagerDashboardProps> = ({
     const refresh = () => setExpenses(StorageService.getExpenses());
     refresh();
     return StorageService.subscribe(refresh);
-  }, []);
-
-  // Touch screens do not fire HTML5 drag events, so cards switch to tap-to-pick.
-  useEffect(() => {
-    const query = window.matchMedia('(pointer: coarse)');
-    const update = () => setIsTouch(query.matches);
-    update();
-    query.addEventListener('change', update);
-    return () => query.removeEventListener('change', update);
   }, []);
 
   const finance = calculateFinanceTotals(jobs, expenses);
@@ -159,20 +152,9 @@ export const ManagerDashboard: React.FC<ManagerDashboardProps> = ({
     (j) => j.status === 'Completed' && !isCompletedWithinLast24Hours(j)
   ).length;
 
-  const pickedJob = pickedJobId ? jobs.find((j) => j.id === pickedJobId) || null : null;
-
   const handleTeamsUpdated = () => {
     setTeams(StorageService.getTeams());
     onRefreshJobs();
-  };
-
-  const handleDragStart = (e: React.DragEvent, jobId: string) => {
-    e.dataTransfer.setData('text/plain', jobId);
-    setDraggedJobId(jobId);
-  };
-
-  const handleDragOver = (e: React.DragEvent) => {
-    e.preventDefault();
   };
 
   const toast = (msg: string) => {
@@ -224,23 +206,6 @@ export const ManagerDashboard: React.FC<ManagerDashboardProps> = ({
   };
 
   // Drop onto a team column → open the simple send screen
-  const handleDropOnTeam = (e: React.DragEvent, targetTeamId: string | null) => {
-    e.preventDefault();
-    const jobId = e.dataTransfer.getData('text/plain') || draggedJobId;
-    if (jobId) moveJobToTeam(jobId, targetTeamId);
-    setDraggedJobId(null);
-  };
-
-  const handleDropOnCompleted = (e: React.DragEvent) => {
-    e.preventDefault();
-    const jobId = e.dataTransfer.getData('text/plain') || draggedJobId;
-    if (!jobId) return;
-    const job = StorageService.getJobById(jobId);
-    if (!job) return;
-    handleManagerSetStatus(job, 'Completed');
-    setDraggedJobId(null);
-  };
-
   const handleManagerSetStatus = (job: JobRecord, nextStatus: JobStatus) => {
     const isCompleted = nextStatus === 'Completed';
     const updated: JobRecord = {
@@ -266,21 +231,23 @@ export const ManagerDashboard: React.FC<ManagerDashboardProps> = ({
     toast(isCompleted ? `Vehicle ${job.plateNumber} is Done.` : `Vehicle ${job.plateNumber} is now ${nextStatus}.`);
   };
 
-  const togglePick = (jobId: string) => {
-    setPickedJobId((current) => (current === jobId ? null : jobId));
-  };
-
-  const sendPickedTo = (teamId: string | null) => {
-    if (!pickedJobId) return;
-    moveJobToTeam(pickedJobId, teamId);
-    setPickedJobId(null);
-  };
-
-  const completePicked = () => {
-    if (!pickedJob) return;
-    handleManagerSetStatus(pickedJob, 'Completed');
-    setPickedJobId(null);
-  };
+  const { drag, activeTarget, startDrag, shouldIgnoreClick } = useLongPressDrag<DragPayload>({
+    onDrop: (payload, targetId) => {
+      if (!targetId) return;
+      if (targetId === 'waiting') {
+        moveJobToTeam(payload.id, null);
+        return;
+      }
+      if (targetId === 'completed') {
+        const job = StorageService.getJobById(payload.id);
+        if (job) handleManagerSetStatus(job, 'Completed');
+        return;
+      }
+      if (targetId.startsWith('team:')) {
+        moveJobToTeam(payload.id, targetId.slice(5));
+      }
+    },
+  });
 
   const handleResendSms = (e: React.MouseEvent, job: JobRecord) => {
     e.stopPropagation();
@@ -416,29 +383,21 @@ export const ManagerDashboard: React.FC<ManagerDashboardProps> = ({
         />
       </div>
 
-      {pickedJob && (
-        <div className="flex items-center gap-2 px-3 py-2 rounded-card bg-brand/10 border border-brand/30 text-xs font-semibold text-ink">
-          <Info className="w-4 h-4 text-brand shrink-0" />
-          <span className="flex-1 min-w-0 truncate">
-            {t('manager.pickedHint', { plate: pickedJob.plateNumber })}
-          </span>
-          <button
-            type="button"
-            onClick={() => setPickedJobId(null)}
-            className="shrink-0 px-2 py-1 rounded-lg bg-white border border-line text-[11px] font-semibold cursor-pointer"
-          >
-            {t('manager.cancelPick')}
-          </button>
-        </div>
-      )}
+      <p className="text-[11px] text-brand font-semibold flex items-center gap-1.5 -mt-1">
+        <Send className="w-3.5 h-3.5" />
+        {t('manager.dragHint')}
+      </p>
 
       {/* Board: readable horizontal columns on tablets, a four-column board on desktop */}
       <div className="grid grid-cols-1 gap-3 md:-mx-1 md:flex md:items-start md:gap-3 md:overflow-x-auto md:smooth-scroll md:px-1 md:pb-2 lg:mx-0 lg:grid lg:grid-cols-4 lg:gap-4 lg:overflow-visible lg:px-0">
         {/* WAITING */}
         <div
-          onDragOver={handleDragOver}
-          onDrop={(e) => handleDropOnTeam(e, null)}
-          className="md:snap-start md:shrink-0 md:w-[320px] lg:w-auto bg-amber-50/60 rounded-card p-3 border border-amber-200 min-h-[320px] lg:min-h-[380px] flex flex-col"
+          data-drop-target="waiting"
+          className={`md:snap-start md:shrink-0 md:w-[320px] lg:w-auto bg-amber-50/60 rounded-card p-3 border min-h-[320px] lg:min-h-[380px] flex flex-col transition ${
+            activeTarget === 'waiting' && drag
+              ? 'border-brand ring-2 ring-brand/40'
+              : 'border-amber-200'
+          }`}
         >
           <div className="flex items-center justify-between mb-2">
             <span className="font-bold text-sm text-amber-950">{t('manager.waiting')}</span>
@@ -447,17 +406,6 @@ export const ManagerDashboard: React.FC<ManagerDashboardProps> = ({
             </span>
           </div>
 
-          {pickedJob && (
-            <button
-              type="button"
-              onClick={() => sendPickedTo(null)}
-              className="mb-2 w-full py-1.5 rounded-lg bg-brand hover:bg-brand-hover text-white text-[11px] font-bold flex items-center justify-center gap-1 cursor-pointer"
-            >
-              <Send className="w-3 h-3" />
-              {t('manager.sendHere')}
-            </button>
-          )}
-
           <div className="space-y-2.5 flex-1">
             {unassignedJobsActive.map((job) => {
               const effectivePrice = job.finalApprovedPrice > 0 ? job.finalApprovedPrice : job.totalEstimatedCost;
@@ -465,14 +413,19 @@ export const ManagerDashboard: React.FC<ManagerDashboardProps> = ({
               return (
                 <div
                   key={job.id}
-                  draggable={prepared}
-                  onDragStart={(e) => handleDragStart(e, job.id)}
-                  onClick={() => (isTouch ? togglePick(job.id) : onOpenJobDetail(job))}
-                  className={`bg-white rounded-card border shadow-soft transition cursor-grab active:cursor-grabbing overflow-hidden ${
-                    pickedJobId === job.id
-                      ? 'border-brand ring-2 ring-brand/40'
-                      : 'border-line hover:border-brand/50 hover:shadow-md'
-                  }`}
+                  onPointerDown={(e) =>
+                    startDrag(e, {
+                      id: job.id,
+                      label: job.plateNumber,
+                      subLabel: `${job.jobNumber} · ${job.customerName}`,
+                      kind: 'job',
+                    })
+                  }
+                  onContextMenu={(e) => e.preventDefault()}
+                  onClick={() => {
+                    if (!shouldIgnoreClick()) onOpenJobDetail(job);
+                  }}
+                  className="bg-white rounded-card border border-line shadow-soft transition cursor-grab active:cursor-grabbing overflow-hidden select-none hover:border-brand/50 hover:shadow-md"
                 >
                   <div className="flex items-center justify-between gap-2 px-3 py-2 bg-sand/30 border-b border-line/70">
                     <span className="font-mono text-[11px] font-bold text-ink-muted">
@@ -587,9 +540,12 @@ export const ManagerDashboard: React.FC<ManagerDashboardProps> = ({
           return (
             <div
               key={team.id}
-              onDragOver={handleDragOver}
-              onDrop={(e) => handleDropOnTeam(e, team.id)}
-              className="md:snap-start md:shrink-0 md:w-[320px] lg:w-auto bg-coral/10 rounded-card p-3 border border-coral/30 min-h-[320px] lg:min-h-[380px] flex flex-col"
+              data-drop-target={`team:${team.id}`}
+              className={`md:snap-start md:shrink-0 md:w-[320px] lg:w-auto bg-coral/10 rounded-card p-3 border min-h-[320px] lg:min-h-[380px] flex flex-col transition ${
+                activeTarget === `team:${team.id}` && drag
+                  ? 'border-brand ring-2 ring-brand/40'
+                  : 'border-coral/30'
+              }`}
             >
               <div className="flex items-center justify-between mb-1">
                 <span className="font-bold text-sm text-ink truncate" title={team.name}>
@@ -599,16 +555,6 @@ export const ManagerDashboard: React.FC<ManagerDashboardProps> = ({
                   {teamJobs.length}
                 </span>
               </div>
-              {pickedJob && (
-                <button
-                  type="button"
-                  onClick={() => sendPickedTo(team.id)}
-                  className="mb-2 w-full py-1.5 rounded-lg bg-brand hover:bg-brand-hover text-white text-[11px] font-bold flex items-center justify-center gap-1 cursor-pointer"
-                >
-                  <Send className="w-3 h-3" />
-                  {t('manager.sendHere')}
-                </button>
-              )}
               <div className="text-[10px] text-ink-muted mb-2 flex items-center gap-1">
                 <Phone className="w-3 h-3 text-brand" />
                 <span>{team.leadMechanicName} · {team.leadMechanicPhone}</span>
@@ -621,14 +567,19 @@ export const ManagerDashboard: React.FC<ManagerDashboardProps> = ({
                   return (
                     <div
                       key={job.id}
-                      draggable
-                      onDragStart={(e) => handleDragStart(e, job.id)}
-                      onClick={() => (isTouch ? togglePick(job.id) : onOpenJobDetail(job))}
-                      className={`bg-white rounded-card border shadow-soft transition cursor-grab active:cursor-grabbing overflow-hidden ${
-                        pickedJobId === job.id
-                          ? 'border-brand ring-2 ring-brand/40'
-                          : 'border-line hover:border-brand/50 hover:shadow-md'
-                      }`}
+                      onPointerDown={(e) =>
+                        startDrag(e, {
+                          id: job.id,
+                          label: job.plateNumber,
+                          subLabel: `${job.jobNumber} · ${job.customerName}`,
+                          kind: 'job',
+                        })
+                      }
+                      onContextMenu={(e) => e.preventDefault()}
+                      onClick={() => {
+                        if (!shouldIgnoreClick()) onOpenJobDetail(job);
+                      }}
+                      className="bg-white rounded-card border border-line shadow-soft transition cursor-grab active:cursor-grabbing overflow-hidden select-none hover:border-brand/50 hover:shadow-md"
                     >
                       <div className="flex items-center justify-between gap-2 px-3 py-2 bg-sand/30 border-b border-line/70">
                         <span className="font-mono text-[11px] font-bold text-ink-muted">
@@ -752,9 +703,12 @@ export const ManagerDashboard: React.FC<ManagerDashboardProps> = ({
 
         {/* DONE TODAY */}
         <div
-          onDragOver={handleDragOver}
-          onDrop={handleDropOnCompleted}
-          className="md:snap-start md:shrink-0 md:w-[320px] lg:w-auto bg-emerald-50/50 rounded-card p-3 border border-emerald-200 min-h-[320px] lg:min-h-[380px] flex flex-col"
+          data-drop-target="completed"
+          className={`md:snap-start md:shrink-0 md:w-[320px] lg:w-auto bg-emerald-50/50 rounded-card p-3 border min-h-[320px] lg:min-h-[380px] flex flex-col transition ${
+            activeTarget === 'completed' && drag
+              ? 'border-emerald-600 ring-2 ring-emerald-500/40'
+              : 'border-emerald-200'
+          }`}
         >
           <div className="flex items-center justify-between mb-2">
             <span className="font-bold text-sm text-emerald-950">{t('manager.doneToday')}</span>
@@ -762,17 +716,6 @@ export const ManagerDashboard: React.FC<ManagerDashboardProps> = ({
               {completedJobsRecent.length}
             </span>
           </div>
-
-          {pickedJob && (
-            <button
-              type="button"
-              onClick={completePicked}
-              className="mb-2 w-full py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-[11px] font-bold flex items-center justify-center gap-1 cursor-pointer"
-            >
-              <Check className="w-3 h-3" />
-              {t('manager.sendHere')}
-            </button>
-          )}
 
           <div className="space-y-2.5 flex-1">
             {completedJobsRecent.map((job) => (
@@ -827,6 +770,51 @@ export const ManagerDashboard: React.FC<ManagerDashboardProps> = ({
           </div>
         </div>
       </div>
+
+      {/* Drag-only drop strip for phones/tablets, where not every column is on screen */}
+      {drag && (
+        <div className="fixed inset-x-0 bottom-0 z-[125] lg:hidden bg-white/95 backdrop-blur border-t-2 border-brand shadow-2xl no-print px-2 pt-2 pb-[max(0.5rem,env(safe-area-inset-bottom))]">
+          <p className="text-[10px] font-bold uppercase tracking-wider text-brand px-1 mb-1">
+            {t('manager.dragDropHere')}
+          </p>
+          <div className="flex gap-2 overflow-x-auto pb-1">
+            <div
+              data-drop-target="waiting"
+              className={`shrink-0 min-w-[108px] rounded-xl border-2 px-3 py-2 text-xs font-bold transition ${
+                activeTarget === 'waiting' ? 'bg-amber-500 text-white border-amber-500' : 'bg-white border-amber-300 text-amber-900'
+              }`}
+            >
+              {t('manager.waiting')}
+            </div>
+            {teams.map((team) => (
+              <div
+                key={team.id}
+                data-drop-target={`team:${team.id}`}
+                className={`shrink-0 min-w-[132px] max-w-[180px] rounded-xl border-2 px-3 py-2 transition ${
+                  activeTarget === `team:${team.id}`
+                    ? 'bg-brand text-white border-brand'
+                    : 'bg-white border-coral/40 text-ink'
+                }`}
+              >
+                <p className="text-xs font-bold truncate">{team.name}</p>
+                <p className={`text-[10px] truncate ${activeTarget === `team:${team.id}` ? 'text-white/80' : 'text-ink-muted'}`}>
+                  {team.leadMechanicName}
+                </p>
+              </div>
+            ))}
+            <div
+              data-drop-target="completed"
+              className={`shrink-0 min-w-[108px] rounded-xl border-2 px-3 py-2 text-xs font-bold transition ${
+                activeTarget === 'completed' ? 'bg-emerald-600 text-white border-emerald-600' : 'bg-white border-emerald-300 text-emerald-900'
+              }`}
+            >
+              {t('manager.done')}
+            </div>
+          </div>
+        </div>
+      )}
+
+      <DragPreview drag={drag} />
 
       {/* Team Management Modal */}
       <TeamManagementModal

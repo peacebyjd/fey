@@ -307,13 +307,34 @@ export const PartsRequestModal: React.FC<PartsRequestModalProps> = ({
               />
             </div>
 
-            <button
-              type="submit"
-              className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl bg-brand hover:bg-brand-hover text-white text-sm font-bold cursor-pointer"
-            >
-              <ShoppingCart className="w-4 h-4" />
-              Send order to outside shop
-            </button>
+            <div className="grid grid-cols-1 sm:grid-cols-[1fr_auto] gap-2">
+              <button
+                type="submit"
+                className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl bg-brand hover:bg-brand-hover text-white text-sm font-bold cursor-pointer"
+              >
+                <ShoppingCart className="w-4 h-4" />
+                Send order to outside shop
+              </button>
+              {supplierPhone.trim() ? (
+                <a
+                  href={`tel:${supplierPhone.trim()}`}
+                  title={`Call shop ${supplierPhone.trim()}`}
+                  aria-label={`Call shop ${supplierPhone.trim()}`}
+                  className="flex items-center justify-center gap-2 px-4 py-3 rounded-xl bg-emerald-50 border border-emerald-300 text-emerald-800 hover:bg-emerald-100 text-sm font-bold"
+                >
+                  <PhoneCall className="w-4 h-4" />
+                  Call shop
+                </a>
+              ) : (
+                <span
+                  title="Add the shop phone above to call it"
+                  className="flex items-center justify-center gap-2 px-4 py-3 rounded-xl bg-sand/50 border border-line text-ink-muted text-sm font-bold opacity-60 cursor-not-allowed"
+                >
+                  <PhoneCall className="w-4 h-4" />
+                  Call shop
+                </span>
+              )}
+            </div>
           </form>
 
           <div>
